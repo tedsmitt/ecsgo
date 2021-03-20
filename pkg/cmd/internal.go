@@ -3,7 +3,6 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -14,12 +13,17 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ecs"
+	"github.com/fatih/color"
 )
 
 var (
 	client   *ecs.ECS
 	region   string
 	endpoint string
+
+	red    = color.New(color.FgRed).SprintFunc()
+	green  = color.New(color.FgGreen).SprintFunc()
+	yellow = color.New(color.FgYellow).SprintFunc()
 )
 
 func init() {
@@ -42,7 +46,7 @@ func createEcsClient() *ecs.ECS {
 func getCluster() (string, error) {
 	list, err := client.ListClusters(&ecs.ListClustersInput{})
 	if err != nil {
-		log.Fatal(err)
+		return "", err
 	}
 
 	var clusterName string
@@ -55,12 +59,12 @@ func getCluster() (string, error) {
 		}
 		selection, err := selectCluster(clusterNames)
 		if err != nil {
-			log.Fatal(err)
+			return "", err
 		}
 		clusterName = selection
 		return clusterName, nil
 	} else {
-		err := errors.New("no clusters found in account")
+		err := errors.New("No clusters found in account or region")
 		return "", err
 	}
 }
@@ -89,7 +93,7 @@ func getTask(clusterName string) (*ecs.Task, error) {
 		task := selection
 		return task, nil
 	} else {
-		err := errors.New("there are no running tasks in this cluster")
+		err := errors.New(fmt.Sprintf("There are no running tasks in the cluster %s", clusterName))
 		return nil, err
 	}
 }
@@ -122,6 +126,7 @@ func selectCluster(clusterNames []string) (string, error) {
 			},
 		},
 	}
+
 	err := survey.Ask(qs, &clusterName)
 	if err != nil {
 		fmt.Println(err.Error())
@@ -133,40 +138,44 @@ func selectCluster(clusterNames []string) (string, error) {
 
 // selectTask provides the prompt for choosing a Task
 func selectTask(tasks []*ecs.Task) (*ecs.Task, error) {
-
-	var tasksShort []string
+	var options []string
 	for _, t := range tasks {
 		var containers []string
 		for _, c := range t.Containers {
 			containers = append(containers, *c.Name)
 		}
-		// Unholy line of code, needs tidying up
-		tasksShort = append(tasksShort, fmt.Sprintf("%s\t%s\t(%s)", strings.Split(*t.TaskArn, "/")[2],
-			strings.Split(*t.TaskDefinitionArn, "/")[1], strings.Join(containers, ",")))
+		id := strings.Split(*t.TaskArn, "/")[2]
+		taskDefinion := strings.Split(*t.TaskDefinitionArn, "/")[1]
+		options = append(options, fmt.Sprintf("%s\t%s\t(%s)", id, taskDefinion, strings.Join(containers, ",")))
 	}
+
 	var qs = []*survey.Question{
 		{
 			Name: "Task",
 			Prompt: &survey.Select{
 				Message: "Task you would like to connect to:",
-				Options: tasksShort,
+				Options: options,
 			},
 		},
 	}
+
 	var selection string
 	err := survey.Ask(qs, &selection)
 	if err != nil {
 		fmt.Println(err.Error())
 		return &ecs.Task{}, err
 	}
+
 	var task *ecs.Task
 	// Loop through our tasks and pull out the one which matches our selection
 	for _, t := range tasks {
 		id := strings.Split(*t.TaskArn, "/")[2]
 		if strings.Contains(selection, id) {
 			task = t
+			break
 		}
 	}
+
 	return task, nil
 }
 
@@ -176,6 +185,7 @@ func selectContainer(containers []*ecs.Container) (*ecs.Container, error) {
 	for _, c := range containers {
 		containerNames = append(containerNames, *c.Name)
 	}
+
 	var selection string
 	var qs = []*survey.Question{
 		{
@@ -186,24 +196,26 @@ func selectContainer(containers []*ecs.Container) (*ecs.Container, error) {
 			},
 		},
 	}
-	// perform the questions
+
 	err := survey.Ask(qs, &selection)
 	if err != nil {
 		fmt.Println(err.Error())
 		return &ecs.Container{}, err
 	}
+
 	var container *ecs.Container
 	for _, c := range containers {
 		if strings.Contains(*c.Name, selection) {
 			container = c
 		}
 	}
+
 	return container, nil
 }
 
-// runCommand executes a command with args, catches any signals and handles them
+// runCommand executes a command with args, catches any signals and handles them -
+// not to be consufed
 func runCommand(process string, args ...string) error {
-
 	cmd := exec.Command(process, args...)
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout

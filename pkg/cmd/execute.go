@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	_ "embed"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -18,15 +17,15 @@ func StartExecuteCommand() {
 
 	clusterName, err := getCluster()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf(red(err))
 	}
 	task, err := getTask(clusterName)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf(red(err))
 	}
 	container, err := getContainer(task)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf(red(err))
 	}
 	// Check if command has been passed to the tool, otherwise default
 	// to /bin/sh
@@ -37,16 +36,13 @@ func StartExecuteCommand() {
 		command = "/bin/sh"
 	}
 
-	// construct our execute command
-	input := &ecs.ExecuteCommandInput{
+	execCommand, err := client.ExecuteCommand(&ecs.ExecuteCommandInput{
 		Cluster:     aws.String(clusterName),
 		Interactive: aws.Bool(true),
 		Task:        task.TaskArn,
 		Command:     aws.String(command),
 		Container:   container.Name,
-	}
-	//ctx, _ := context.WithTimeout(context.Background(), time.Second*15)
-	execCommand, err := client.ExecuteCommand(input)
+	})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -62,6 +58,7 @@ func StartExecuteCommand() {
 		log.Println(err)
 	}
 
+	// Expecting session-manager-plugin to be found in $PATH
 	runCommand("session-manager-plugin", string(execSess),
 		region, "StartSession", "", string(targetJson), endpoint)
 	if err != nil {

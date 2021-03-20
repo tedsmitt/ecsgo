@@ -15,7 +15,7 @@ limitations under the License.
 */
 package main
 
-import "github.com/tedsmitt/ecsgo/cmd"
+import "github.com/tedsmitt/ecsgo/pkg/cmd"
 
 func main() {
 	cmd.Execute()
