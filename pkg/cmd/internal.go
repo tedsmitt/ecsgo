@@ -17,7 +17,6 @@ import (
 )
 
 var (
-	client   *ecs.ECS
 	region   string
 	endpoint string
 
@@ -27,7 +26,7 @@ var (
 )
 
 func init() {
-	client = createEcsClient()
+	client := createEcsClient()
 	region = client.SigningRegion
 	endpoint = client.Endpoint
 }
@@ -42,8 +41,12 @@ func createEcsClient() *ecs.ECS {
 	return client
 }
 
+type ECSListClustersAPI interface {
+	ListClusters(input *ecs.ListClustersInput) (*ecs.ListClustersOutput, error)
+}
+
 // Lists available clusters and prompts the user to select one
-func getCluster() (string, error) {
+func getCluster(client ECSListClustersAPI) (string, error) {
 	list, err := client.ListClusters(&ecs.ListClustersInput{})
 	if err != nil {
 		return "", err
@@ -70,7 +73,7 @@ func getCluster() (string, error) {
 }
 
 // Lists tasks in a cluster and prompts the user to select one
-func getTask(clusterName string) (*ecs.Task, error) {
+func getTask(client *ecs.ECS, clusterName string) (*ecs.Task, error) {
 	list, err := client.ListTasks(&ecs.ListTasksInput{
 		Cluster: aws.String(clusterName),
 	})
@@ -100,7 +103,7 @@ func getTask(clusterName string) (*ecs.Task, error) {
 
 // Lists containers in a task and prompts the user to select one (if there is more than 1 container)
 // otherwise returns the the only container in the task
-func getContainer(task *ecs.Task) (*ecs.Container, error) {
+func getContainer(client *ecs.ECS, task *ecs.Task) (*ecs.Container, error) {
 	if len(task.Containers) > 1 {
 		// Ask the user to select a container
 		selection, err := selectContainer(task.Containers)

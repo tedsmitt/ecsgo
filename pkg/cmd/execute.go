@@ -15,15 +15,17 @@ import (
 
 func StartExecuteCommand() {
 
-	clusterName, err := getCluster()
+	client := createEcsClient()
+
+	clusterName, err := getCluster(client)
 	if err != nil {
 		log.Fatalf(red(err))
 	}
-	task, err := getTask(clusterName)
+	task, err := getTask(client, clusterName)
 	if err != nil {
 		log.Fatalf(red(err))
 	}
-	container, err := getContainer(task)
+	container, err := getContainer(client, task)
 	if err != nil {
 		log.Fatalf(red(err))
 	}
