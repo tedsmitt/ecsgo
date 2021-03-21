@@ -3,9 +3,8 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"log"
-	"os"
 
+	"github.com/aws/aws-sdk-go/service/ecs/ecsiface"
 	"github.com/aws/aws-sdk-go/service/ssm"
 	"github.com/spf13/viper"
 
@@ -13,22 +12,21 @@ import (
 	"github.com/aws/aws-sdk-go/service/ecs"
 )
 
-func StartExecuteCommand() {
-
-	client := createEcsClient()
+func StartExecuteCommand(client ecsiface.ECSAPI) error {
 
 	clusterName, err := getCluster(client)
 	if err != nil {
-		log.Fatalf(red(err))
+		return err
 	}
 	task, err := getTask(client, clusterName)
 	if err != nil {
-		log.Fatalf(red(err))
+		return err
 	}
-	container, err := getContainer(client, task)
+	container, err := getContainer(task)
 	if err != nil {
-		log.Fatalf(red(err))
+		return err
 	}
+
 	// Check if command has been passed to the tool, otherwise default
 	// to /bin/sh
 	var command string
@@ -46,25 +44,23 @@ func StartExecuteCommand() {
 		Container:   container.Name,
 	})
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	execSess, err := json.Marshal(execCommand.Session)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	target := ssm.StartSessionInput{
-		Target: aws.String(fmt.Sprintf("ecs:%s_%s_%s", "execCommand", *task.TaskArn, *container.RuntimeId)),
+		Target: aws.String(fmt.Sprintf("ecs:%s_%s_%s", clusterName, *task.TaskArn, *container.RuntimeId)),
 	}
 	targetJson, err := json.Marshal(target)
 	if err != nil {
-		log.Println(err)
+		return err
 	}
 
 	// Expecting session-manager-plugin to be found in $PATH
-	runCommand("session-manager-plugin", string(execSess),
-		region, "StartSession", "", string(targetJson), endpoint)
-	if err != nil {
-		log.Fatalf(err.Error())
+	if err = runCommand("session-manager-plugin", string(execSess), region, "StartSession", "", string(targetJson), endpoint); err != nil {
+		return err
 	}
-	os.Exit(0)
+	return nil
 }
