@@ -12,6 +12,7 @@ import (
 type MockECSAPI struct {
 	ecsiface.ECSAPI    // embedding of the interface is needed to skip implementation of all methods
 	ListClustersMock   func(input *ecs.ListClustersInput) (*ecs.ListClustersOutput, error)
+	ListServicesMock   func(input *ecs.ListServicesInput) (*ecs.ListServicesOutput, error)
 	ListTasksMock      func(input *ecs.ListTasksInput) (*ecs.ListTasksOutput, error)
 	DescribeTasksMock  func(input *ecs.DescribeTasksInput) (*ecs.DescribeTasksOutput, error)
 	ExecuteCommandMock func(input *ecs.ExecuteCommandInput) (*ecs.ExecuteCommandOutput, error)
@@ -20,6 +21,13 @@ type MockECSAPI struct {
 func (m *MockECSAPI) ListClusters(input *ecs.ListClustersInput) (*ecs.ListClustersOutput, error) { // This allows the test to use the same method
 	if m.ListClustersMock != nil {
 		return m.ListClustersMock(input) // We intercept and return a made up reply
+	}
+	return nil, nil // return any value you think is good for you
+}
+
+func (m *MockECSAPI) ListServices(input *ecs.ListServicesInput) (*ecs.ListServicesOutput, error) { // This allows the test to use the same method
+	if m.ListServicesMock != nil {
+		return m.ListServicesMock(input) // We intercept and return a made up reply
 	}
 	return nil, nil // return any value you think is good for you
 }
@@ -76,6 +84,45 @@ func TestGetCluster(t *testing.T) {
 	}
 }
 
+func TestGetService(t *testing.T) {
+	cases := []struct {
+		name     string
+		client   *MockECSAPI
+		expected string
+	}{
+		{
+			name: "TestGetServiceWithResults",
+			client: &MockECSAPI{
+				ListServicesMock: func(input *ecs.ListServicesInput) (*ecs.ListServicesOutput, error) {
+					return &ecs.ListServicesOutput{
+						ServiceArns: []*string{
+							aws.String("arn:aws:ecs:eu-west-1:1111111111:cluster/execCommand/test-service-1"),
+							aws.String("arn:aws:ecs:eu-west-1:1111111111:cluster/bluegreen/test-service-2"),
+						},
+					}, nil
+				},
+			},
+			expected: "test-service-1",
+		},
+		{
+			name: "TestGetServiceWithoutResults",
+			client: &MockECSAPI{
+				ListServicesMock: func(input *ecs.ListServicesInput) (*ecs.ListServicesOutput, error) {
+					return &ecs.ListServicesOutput{
+						ServiceArns: []*string{},
+					}, nil
+				},
+			},
+			expected: "",
+		},
+	}
+	for _, c := range cases {
+		clusterName := "execCommand"
+		result, _ := getService(c.client, clusterName)
+		assert.Equal(t, c.expected, result)
+	}
+}
+
 func TestGetTask(t *testing.T) {
 	cases := []struct {
 		name     string
@@ -120,7 +167,8 @@ func TestGetTask(t *testing.T) {
 	}
 	for _, c := range cases {
 		clusterName := "execCommand"
-		result, _ := getTask(c.client, clusterName)
+		serviceName := "test-service-1"
+		result, _ := getTask(c.client, clusterName, serviceName)
 		assert.Equal(t, c.expected, result)
 	}
 }

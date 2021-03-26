@@ -37,6 +37,13 @@ func TestStartExecuteCommand(t *testing.T) {
 						},
 					}, nil
 				},
+				ListServicesMock: func(input *ecs.ListServicesInput) (*ecs.ListServicesOutput, error) {
+					return &ecs.ListServicesOutput{
+						ServiceArns: []*string{
+							aws.String("arn:aws:ecs:eu-west-1:1111111111:cluster/execCommand/test-service-1"),
+						},
+					}, nil
+				},
 				ListTasksMock: func(input *ecs.ListTasksInput) (*ecs.ListTasksOutput, error) {
 					return &ecs.ListTasksOutput{
 						TaskArns: []*string{
