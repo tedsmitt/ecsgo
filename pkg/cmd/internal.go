@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"errors"
+	"flag"
 	"fmt"
 	"os"
 	"os/exec"
@@ -13,11 +14,11 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ecs"
+	"github.com/aws/aws-sdk-go/service/ecs/ecsiface"
 	"github.com/fatih/color"
 )
 
 var (
-	client   *ecs.ECS
 	region   string
 	endpoint string
 
@@ -26,29 +27,24 @@ var (
 	yellow = color.New(color.FgYellow).SprintFunc()
 )
 
-func init() {
-	client = createEcsClient()
-	region = client.SigningRegion
-	endpoint = client.Endpoint
-}
-
 func createEcsClient() *ecs.ECS {
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable,
 	}))
 
 	client := ecs.New(sess)
+	region = client.SigningRegion
+	endpoint = client.Endpoint
 
 	return client
 }
 
 // Lists available clusters and prompts the user to select one
-func getCluster() (string, error) {
+func getCluster(client ecsiface.ECSAPI) (string, error) {
 	list, err := client.ListClusters(&ecs.ListClustersInput{})
 	if err != nil {
 		return "", err
 	}
-
 	var clusterName string
 	if len(list.ClusterArns) > 0 {
 		var clusterNames []string
@@ -70,12 +66,12 @@ func getCluster() (string, error) {
 }
 
 // Lists tasks in a cluster and prompts the user to select one
-func getTask(clusterName string) (*ecs.Task, error) {
+func getTask(client ecsiface.ECSAPI, clusterName string) (*ecs.Task, error) {
 	list, err := client.ListTasks(&ecs.ListTasksInput{
 		Cluster: aws.String(clusterName),
 	})
 	if err != nil {
-		return nil, err
+		return &ecs.Task{}, err
 	}
 	if len(list.TaskArns) > 0 {
 		describe, err := client.DescribeTasks(&ecs.DescribeTasksInput{
@@ -83,18 +79,18 @@ func getTask(clusterName string) (*ecs.Task, error) {
 			Tasks:   list.TaskArns,
 		})
 		if err != nil {
-			return nil, err
+			return &ecs.Task{}, err
 		}
 		// Ask the user to select which Task to connect to
 		selection, err := selectTask(describe.Tasks)
 		if err != nil {
-			return nil, err
+			return &ecs.Task{}, err
 		}
 		task := selection
 		return task, nil
 	} else {
 		err := errors.New(fmt.Sprintf("There are no running tasks in the cluster %s", clusterName))
-		return nil, err
+		return &ecs.Task{}, err
 	}
 }
 
@@ -116,6 +112,9 @@ func getContainer(task *ecs.Task) (*ecs.Container, error) {
 
 // selectCluster provides the prompt for choosing a cluster
 func selectCluster(clusterNames []string) (string, error) {
+	if flag.Lookup("test.v") != nil {
+		return clusterNames[0], nil
+	}
 	var clusterName string
 	var qs = []*survey.Question{
 		{
@@ -138,6 +137,9 @@ func selectCluster(clusterNames []string) (string, error) {
 
 // selectTask provides the prompt for choosing a Task
 func selectTask(tasks []*ecs.Task) (*ecs.Task, error) {
+	if flag.Lookup("test.v") != nil {
+		return tasks[0], nil
+	}
 	var options []string
 	for _, t := range tasks {
 		var containers []string
@@ -181,6 +183,9 @@ func selectTask(tasks []*ecs.Task) (*ecs.Task, error) {
 
 // selectContainer prompts the user to choose a container within a task
 func selectContainer(containers []*ecs.Container) (*ecs.Container, error) {
+	if flag.Lookup("test.v") != nil {
+		return containers[0], nil
+	}
 	var containerNames []string
 	for _, c := range containers {
 		containerNames = append(containerNames, *c.Name)
@@ -227,7 +232,6 @@ func runCommand(process string, args ...string) error {
 		for {
 			select {
 			case <-sigs:
-				os.Exit(0)
 			}
 		}
 	}()
