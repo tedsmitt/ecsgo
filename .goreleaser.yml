@@ -10,11 +10,8 @@ builds:
   goos:
     - linux
     - darwin
-    - windows
   goarch:
-    - 386
     - amd64
-    - arm
     - arm64
   mod_timestamp: '{{ .CommitTimestamp }}'
   flags:

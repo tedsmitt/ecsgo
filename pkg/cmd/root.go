@@ -62,9 +62,10 @@ func init() {
 
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
-	//rootCmd.PersistentFlags().StringP("region", "r", "", "AWS Region")
 	//rootCmd.PersistentFlags().StringP("task", "t", "", "Task ID to connect to")
 	rootCmd.PersistentFlags().StringP("cmd", "c", "", "Command to run on the container")
+	rootCmd.PersistentFlags().StringP("region", "r", "", "AWS Region")
 
 	viper.BindPFlag("cmd", rootCmd.PersistentFlags().Lookup("cmd"))
+	viper.BindPFlag("region", rootCmd.PersistentFlags().Lookup("region"))
 }

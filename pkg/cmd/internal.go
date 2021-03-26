@@ -16,6 +16,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/ecs"
 	"github.com/aws/aws-sdk-go/service/ecs/ecsiface"
 	"github.com/fatih/color"
+	"github.com/spf13/viper"
 )
 
 var (
@@ -28,7 +29,9 @@ var (
 )
 
 func createEcsClient() *ecs.ECS {
+	region := viper.GetString("region")
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
+		Config:            aws.Config{Region: aws.String(region)},
 		SharedConfigState: session.SharedConfigEnable,
 	}))
 
@@ -65,11 +68,47 @@ func getCluster(client ecsiface.ECSAPI) (string, error) {
 	}
 }
 
-// Lists tasks in a cluster and prompts the user to select one
-func getTask(client ecsiface.ECSAPI, clusterName string) (*ecs.Task, error) {
-	list, err := client.ListTasks(&ecs.ListTasksInput{
+// Lists available service and prompts the user to select one
+func getService(client ecsiface.ECSAPI, clusterName string) (string, error) {
+	list, err := client.ListServices(&ecs.ListServicesInput{
 		Cluster: aws.String(clusterName),
 	})
+	if err != nil {
+		return "", err
+	}
+	var serviceName string
+	if len(list.ServiceArns) > 0 {
+		var serviceNames []string
+		for _, c := range list.ServiceArns {
+			arnSplit := strings.Split(*c, "/")
+			name := arnSplit[len(arnSplit)-1]
+			serviceNames = append(serviceNames, name)
+		}
+		selection, err := selectService(serviceNames)
+		if err != nil {
+			return "", err
+		}
+		serviceName = selection
+		return serviceName, nil
+	} else {
+		return "", err
+	}
+}
+
+// Lists tasks in a cluster and prompts the user to select one
+func getTask(client ecsiface.ECSAPI, clusterName string, serviceName string) (*ecs.Task, error) {
+	var input *ecs.ListTasksInput
+	if serviceName == "*" {
+		input = &ecs.ListTasksInput{
+			Cluster: aws.String(clusterName),
+		}
+	} else {
+		input = &ecs.ListTasksInput{
+			Cluster:     aws.String(clusterName),
+			ServiceName: aws.String(serviceName),
+		}
+	}
+	list, err := client.ListTasks(input)
 	if err != nil {
 		return &ecs.Task{}, err
 	}
@@ -120,7 +159,7 @@ func selectCluster(clusterNames []string) (string, error) {
 		{
 			Name: "Cluster",
 			Prompt: &survey.Select{
-				Message: "Cluster your task resides in:",
+				Message: "Select which cluster you want to use:",
 				Options: clusterNames,
 			},
 		},
@@ -133,6 +172,32 @@ func selectCluster(clusterNames []string) (string, error) {
 	}
 
 	return clusterName, nil
+}
+
+// selectService provides the prompt for choosing a service
+func selectService(serviceNames []string) (string, error) {
+	if flag.Lookup("test.v") != nil {
+		return serviceNames[0], nil
+	}
+	serviceNames = append(serviceNames, "*")
+	var serviceName string
+	var qs = []*survey.Question{
+		{
+			Name: "Service",
+			Prompt: &survey.Select{
+				Message: fmt.Sprintf("Select a service %s:", yellow("(choose * to display all tasks)")),
+				Options: serviceNames,
+			},
+		},
+	}
+
+	err := survey.Ask(qs, &serviceName)
+	if err != nil {
+		fmt.Println(err.Error())
+		return "", err
+	}
+
+	return serviceName, nil
 }
 
 // selectTask provides the prompt for choosing a Task
@@ -155,7 +220,7 @@ func selectTask(tasks []*ecs.Task) (*ecs.Task, error) {
 		{
 			Name: "Task",
 			Prompt: &survey.Select{
-				Message: "Task you would like to connect to:",
+				Message: fmt.Sprintf("Select the task you would like to connect to %s:", yellow("(if multi-container you will be prompted)")),
 				Options: options,
 			},
 		},

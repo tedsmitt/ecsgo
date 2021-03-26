@@ -18,7 +18,11 @@ func StartExecuteCommand(client ecsiface.ECSAPI) error {
 	if err != nil {
 		return err
 	}
-	task, err := getTask(client, clusterName)
+	serviceName, err := getService(client, clusterName)
+	if err != nil {
+		return err
+	}
+	task, err := getTask(client, clusterName, serviceName)
 	if err != nil {
 		return err
 	}
