@@ -32,6 +32,7 @@ func createEcsClient() *ecs.ECS {
 	region := viper.GetString("region")
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
 		Config:            aws.Config{Region: aws.String(region)},
+		Profile:           viper.GetString("profile"),
 		SharedConfigState: session.SharedConfigEnable,
 	}))
 

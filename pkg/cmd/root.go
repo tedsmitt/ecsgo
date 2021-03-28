@@ -64,8 +64,10 @@ func init() {
 	// will be global for your application.
 	//rootCmd.PersistentFlags().StringP("task", "t", "", "Task ID to connect to")
 	rootCmd.PersistentFlags().StringP("cmd", "c", "", "Command to run on the container")
+	rootCmd.PersistentFlags().StringP("profile", "p", "", "AWS Profile")
 	rootCmd.PersistentFlags().StringP("region", "r", "", "AWS Region")
 
 	viper.BindPFlag("cmd", rootCmd.PersistentFlags().Lookup("cmd"))
+	viper.BindPFlag("profile", rootCmd.PersistentFlags().Lookup("profile"))
 	viper.BindPFlag("region", rootCmd.PersistentFlags().Lookup("region"))
 }

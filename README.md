@@ -28,6 +28,7 @@ The tool uses your AWS Config/Environment Variables to run. If you aren't famili
 
 | Flag        | Description | Default Value |
 | ----------- | ----------- | ------------- |
+| `-p`        | Specify the profile to load the credentials | `default` |
 | `-c`        | Specify the command to be run on the container, defaults to |`/bin/sh`|
 | `-r`        | Specify the AWS region to run in                            | N/A
 
