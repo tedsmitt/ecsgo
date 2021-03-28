@@ -26,6 +26,11 @@ var (
 	red    = color.New(color.FgRed).SprintFunc()
 	green  = color.New(color.FgGreen).SprintFunc()
 	yellow = color.New(color.FgYellow).SprintFunc()
+
+	version = "unset"
+	commit  = "unset"
+	date    = "unset"
+	builtBy = "unset"
 )
 
 func createEcsClient() *ecs.ECS {
@@ -308,6 +313,10 @@ func runCommand(process string, args ...string) error {
 	}
 
 	return nil
+}
+
+func getVersion() string {
+	return fmt.Sprintf("Version: %s, Commit: %s, Built date: %s, Built by: %s", version, commit, date, builtBy)
 }
 
 // selectProfile
