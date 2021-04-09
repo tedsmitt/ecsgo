@@ -18,11 +18,7 @@ brew install ecsgo
 
 #### Linux
 ```
-<<<<<<< HEAD
 wget https://github.com/tedsmitt/ecsgo/releases/download/0.2.0/ecsgo_Linux_x86_64.tar.gz
-=======
-wget https://github.com/tedsmitt/ecsgo/releases/download/0.1.3/ecsgo_Linux_x86_64.tar.gz
->>>>>>> c159b45ff16e0569ca7f906e157b9eb926e279cc
 tar xzf ecsgo_*.tar.gz
 ```
 Move the `ecsgo` binary into your `$PATH`
