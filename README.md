@@ -32,7 +32,8 @@ Move the `ecsgo` binary into your `$PATH`
 
 The tool also supports AWS Config/Environment Variables for configuration. If you aren't familiar with working on AWS via the CLI, you can read more about how to configure your environment [here](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html).
 
-See it in action below:
+
+#### See it in action below
 ![ecsgo0 2 0](https://user-images.githubusercontent.com/25430401/114218136-ef8f7b00-9960-11eb-9c3f-b353ae0ff7ca.gif)
 
 #### Why would I use this over something like AWS Copilot?
