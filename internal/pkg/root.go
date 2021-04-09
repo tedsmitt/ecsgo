@@ -16,8 +16,6 @@ limitations under the License.
 package cmd
 
 import (
-	"log"
-
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -45,10 +43,8 @@ Requires pre-existing installation of the session-manager-plugin
 ------------`,
 	Version: getVersion(),
 	Run: func(cmd *cobra.Command, args []string) {
-		client := createEcsClient()
-		if err := StartExecuteCommand(client); err != nil {
-			log.Println(red(err))
-		}
+		e := CreateExecCommand()
+		e.Start()
 	},
 }
 
