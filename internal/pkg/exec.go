@@ -255,7 +255,8 @@ func (e *ExecCommand) executeCmd() {
 		return
 	}
 
-	fmt.Printf("\nCluster: %v | Service: %v | Task: %s | Container: %v \n", green(e.cluster), blue(e.service), cyan(strings.Split(*e.task.TaskArn, "/")[2]), yellow(*e.container.Name))
+	fmt.Printf("\nCluster: %v | Service: %v | Task: %s", cyan(e.cluster), magenta(e.service), green(strings.Split(*e.task.TaskArn, "/")[2]))
+	fmt.Printf("\nConnecting to container %v", yellow(*e.container.Name))
 	// Expecting session-manager-plugin to be found in $PATH
 	if err = runCommand("session-manager-plugin", string(execSess), e.region, "StartSession", "", string(targetJson), e.endpoint); err != nil {
 		e.done <- true

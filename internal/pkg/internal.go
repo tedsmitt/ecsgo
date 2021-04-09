@@ -21,11 +21,11 @@ var (
 	region   string
 	endpoint string
 
-	red    = color.New(color.FgRed).SprintFunc()
-	blue   = color.New(color.FgBlue).SprintFunc()
-	cyan   = color.New(color.FgCyan).SprintFunc()
-	green  = color.New(color.FgGreen).SprintFunc()
-	yellow = color.New(color.FgYellow).SprintFunc()
+	red     = color.New(color.FgRed).SprintFunc()
+	magenta = color.New(color.FgMagenta).SprintFunc()
+	cyan    = color.New(color.FgCyan).SprintFunc()
+	green   = color.New(color.FgGreen).SprintFunc()
+	yellow  = color.New(color.FgYellow).SprintFunc()
 
 	backOpt = "⏎ Back"
 
@@ -81,7 +81,7 @@ func selectCluster(clusterNames []string) (string, error) {
 	var selection string
 	err := survey.AskOne(prompt, &selection, survey.WithIcons(func(icons *survey.IconSet) {
 		icons.SelectFocus.Text = "➡"
-		icons.SelectFocus.Format = "blue+hb"
+		icons.SelectFocus.Format = "cyan+hb"
 	}))
 	if err != nil {
 		return "", err
@@ -105,7 +105,7 @@ func selectService(serviceNames []string) (string, error) {
 	var selection string
 	err := survey.AskOne(prompt, &selection, survey.WithIcons(func(icons *survey.IconSet) {
 		icons.SelectFocus.Text = "➡"
-		icons.SelectFocus.Format = "green+hb"
+		icons.SelectFocus.Format = "magenta+hb"
 	}))
 	if err != nil {
 		return "", err
@@ -140,7 +140,7 @@ func selectTask(tasks map[string]*ecs.Task) (*ecs.Task, error) {
 	var selection string
 	err := survey.AskOne(prompt, &selection, survey.WithIcons(func(icons *survey.IconSet) {
 		icons.SelectFocus.Text = "➡"
-		icons.SelectFocus.Format = "cyan+hb"
+		icons.SelectFocus.Format = "green+hb"
 	}))
 	if err != nil {
 		return &ecs.Task{}, err
