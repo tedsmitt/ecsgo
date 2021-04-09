@@ -15,7 +15,11 @@ builds:
   flags:
     - -trimpath
   ldflags:
-    - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{ .CommitDate }} -X main.builtBy=goreleaser
+    - -s -w
+    - -X github.com/tedsmitt/ecsgo/pkg/cmd.version={{.Version}}
+    - -X github.com/tedsmitt/ecsgo/pkg/cmd.commit={{.Commit}}
+    - -X github.com/tedsmitt/ecsgo/pkg/cmd.date={{ .CommitDate }}
+    - -X github.com/tedsmitt/ecsgo/pkg/cmd.builtBy=goreleaser
 changelog:
   sort: asc
   filters:
