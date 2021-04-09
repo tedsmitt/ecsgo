@@ -2,7 +2,7 @@ before:
   hooks:
     - go mod tidy
 builds:
-- dir: pkg
+- dir: cmd
   env:
     - CGO_ENABLED=0
   goos:
