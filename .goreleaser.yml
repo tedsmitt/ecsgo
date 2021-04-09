@@ -2,7 +2,7 @@ before:
   hooks:
     - go mod tidy
 builds:
-- dir: pkg
+- dir: cmd
   env:
     - CGO_ENABLED=0
   goos:
@@ -16,10 +16,10 @@ builds:
     - -trimpath
   ldflags:
     - -s -w
-    - -X github.com/tedsmitt/ecsgo/pkg/cmd.version={{.Version}}
-    - -X github.com/tedsmitt/ecsgo/pkg/cmd.commit={{.Commit}}
-    - -X github.com/tedsmitt/ecsgo/pkg/cmd.date={{ .CommitDate }}
-    - -X github.com/tedsmitt/ecsgo/pkg/cmd.builtBy=goreleaser
+    - -X github.com/tedsmitt/ecsgo/internal/pkg.version={{.Version}}
+    - -X github.com/tedsmitt/ecsgo/internal/pkg.commit={{.Commit}}
+    - -X github.com/tedsmitt/ecsgo/internal/pkg.date={{ .CommitDate }}
+    - -X github.com/tedsmitt/ecsgo/internal/pkg.builtBy=goreleaser
 changelog:
   sort: asc
   filters:

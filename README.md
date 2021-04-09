@@ -18,31 +18,24 @@ brew install ecsgo
 
 #### Linux
 ```
-wget https://github.com/tedsmitt/ecsgo/releases/download/0.1.3/ecsgo_Linux_x86_64.tar.gz
+wget https://github.com/tedsmitt/ecsgo/releases/download/0.2.0/ecsgo_Linux_x86_64.tar.gz
 tar xzf ecsgo_*.tar.gz
 ```
 Move the `ecsgo` binary into your `$PATH`
 
 ## Usage
-The tool uses your AWS Config/Environment Variables to run. If you aren't familiar with working on AWS via the CLI, you can read more about how to configure your environment [here](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html)
-
 | Flag        | Description | Default Value |
 | ----------- | ----------- | ------------- |
 | `-p`        | Specify the profile to load the credentials | `default` |
 | `-c`        | Specify the command to be run on the container, defaults to |`/bin/sh`|
 | `-r`        | Specify the AWS region to run in                            | N/A
 
-In future releases there will be more flags that will allow you to narrow down the results so you can find your desired task/container quicker.
+The tool also supports AWS Config/Environment Variables for configuration. If you aren't familiar with working on AWS via the CLI, you can read more about how to configure your environment [here](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html).
 
-The tool makes use of the wonderful [survey](https://github.com/AlecAivazis/survey) package which allows us to filter down our results by typing at the prompt.
 
-See below for some examples:
+#### See it in action below
+![ecsgo0 2 0](https://user-images.githubusercontent.com/25430401/114218136-ef8f7b00-9960-11eb-9c3f-b353ae0ff7ca.gif)
 
-#### Connect to a task with multiple containers
-![multicontainer](https://user-images.githubusercontent.com/25430401/112647724-b7584a80-8e40-11eb-9928-d6a39f42d862.gif)
+#### Why would I use this over something like AWS Copilot?
+At this moment in time copilot only supports connecting to resources that are created and/or managed by the copilot CLI. This tool allows you to leverage ECS Exec easily with your existing resources, and plugs the gap until you are able to do the same with Copilot.
 
-#### Tasks that are not part of a service can be viewed by selecting *
-![listall](https://user-images.githubusercontent.com/25430401/112647877-dbb42700-8e40-11eb-8fcf-697edd391c62.gif)
-
-#### Issuing a specific command to a container
-![command](https://user-images.githubusercontent.com/25430401/112655297-25544000-8e48-11eb-9370-ea02ff1e5918.gif)

@@ -15,8 +15,8 @@ limitations under the License.
 */
 package main
 
-import "github.com/tedsmitt/ecsgo/pkg/cmd"
+import cli "github.com/tedsmitt/ecsgo/internal/pkg"
 
 func main() {
-	cmd.Execute()
+	cli.Execute()
 }

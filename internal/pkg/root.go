@@ -13,11 +13,9 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package cmd
+package cli
 
 import (
-	"log"
-
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -45,10 +43,8 @@ Requires pre-existing installation of the session-manager-plugin
 ------------`,
 	Version: getVersion(),
 	Run: func(cmd *cobra.Command, args []string) {
-		client := createEcsClient()
-		if err := StartExecuteCommand(client); err != nil {
-			log.Println(red(err))
-		}
+		e := CreateExecCommand()
+		e.Start()
 	},
 }
 
