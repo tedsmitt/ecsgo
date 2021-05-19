@@ -3,6 +3,8 @@ before:
     - go mod tidy
 builds:
 - dir: cmd
+  env:
+    - CGO_ENABLED=0
   goos:
     - linux
     - darwin
