@@ -250,7 +250,6 @@ func (e *ExecCommand) executeCmd() {
 		return
 	}
 
-	//execSess, err := json.Marshal(execCommand.Session)
 	execSess, err := json.MarshalIndent(execCommand.Session, "", "    ")
 	if err != nil {
 		e.err <- err
@@ -262,7 +261,6 @@ func (e *ExecCommand) executeCmd() {
 	target := ssm.StartSessionInput{
 		Target: aws.String(fmt.Sprintf("ecs:%s_%s_%s", e.cluster, taskID, *e.container.RuntimeId)),
 	}
-	//targetJson, err := json.Marshal(target)
 	targetJson, err := json.MarshalIndent(target, "", "    ")
 	if err != nil {
 		e.err <- err
