@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -47,6 +48,13 @@ func CreateExecCommand() *ExecCommand {
 
 // Start begins a goroutine that listens on the cmd channel for instructions
 func (e *ExecCommand) Start() {
+	// Before we do anything make sure that the session-manager-plugin is available in $PATH, exit if it isn't
+	_, err := exec.LookPath("session-manager-plugin1")
+	if err != nil {
+		fmt.Println(red("session-manager-plugin isn't installed or wasn't found in $PATH - https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html"))
+		os.Exit(1)
+	}
+
 	go func() {
 		for {
 			select {
@@ -241,15 +249,21 @@ func (e *ExecCommand) executeCmd() {
 		e.err <- err
 		return
 	}
-	execSess, err := json.Marshal(execCommand.Session)
+
+	//execSess, err := json.Marshal(execCommand.Session)
+	execSess, err := json.MarshalIndent(execCommand.Session, "", "    ")
 	if err != nil {
 		e.err <- err
 		return
 	}
+
+	taskArnSplit := strings.Split(*e.task.TaskArn, "/")
+	taskID := taskArnSplit[len(taskArnSplit)-1]
 	target := ssm.StartSessionInput{
-		Target: aws.String(fmt.Sprintf("ecs:%s_%s_%s", e.cluster, e.task, *e.container.RuntimeId)),
+		Target: aws.String(fmt.Sprintf("ecs:%s_%s_%s", e.cluster, taskID, *e.container.RuntimeId)),
 	}
-	targetJson, err := json.Marshal(target)
+	//targetJson, err := json.Marshal(target)
+	targetJson, err := json.MarshalIndent(target, "", "    ")
 	if err != nil {
 		e.err <- err
 		return
@@ -257,17 +271,11 @@ func (e *ExecCommand) executeCmd() {
 
 	fmt.Printf("\nCluster: %v | Service: %v | Task: %s", cyan(e.cluster), magenta(e.service), green(strings.Split(*e.task.TaskArn, "/")[2]))
 	fmt.Printf("\nConnecting to container %v", yellow(*e.container.Name))
-	// Expecting session-manager-plugin to be found in $PATH
 	if err = runCommand("session-manager-plugin", string(execSess), e.region, "StartSession", "", string(targetJson), e.endpoint); err != nil {
 		e.done <- true
 		e.err <- err
 		return
 	}
-
-	/* 	if connect := promptConnectAgain(); connect == true {
-		e.cmd <- "getTask"
-		return
-	} */
 
 	e.done <- true
 	return
