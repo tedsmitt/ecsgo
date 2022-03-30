@@ -4,21 +4,6 @@ Heavily inspired by incredibly useful [gossm](https://github.com/gjbae1212/gossm
 
 That's it! Nothing fancy.
 
-## Prereqs
-
-##### session-manager-plugin
-
-This tool makes use of the [session-manager-plugin](https://github.com/aws/session-manager-plugin). For instructions on how to install, please check out https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html.
-
-MacOS users can alternatively install this via Homebrew
-`brew install --cask session-manager-plugin`
-
-##### Infrastructure
-
-You'll need to follow the prerequisites for ECS Exec as outlined in the [blog post](https://aws.amazon.com/blogs/containers/new-using-amazon-ecs-exec-access-your-containers-fargate-ec2/).
-
-You can also view some additional documentation on using ECS Exec [here](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-exec.html)
-
 ## Installation
 
 #### MacOS/Homebrew
@@ -36,6 +21,21 @@ tar xzf ecsgo_*.tar.gz
 ```
 
 Move the `ecsgo` binary into your `$PATH`
+
+## Pre-reqs
+
+#### session-manager-plugin
+
+This tool makes use of the [session-manager-plugin](https://github.com/aws/session-manager-plugin). For instructions on how to install, please check out https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html.
+
+MacOS users can alternatively install this via Homebrew:
+`brew install --cask session-manager-plugin`
+
+#### Infrastructure
+
+You'll need to follow the prerequisites for ECS Exec as outlined in the [blog post](https://aws.amazon.com/blogs/containers/new-using-amazon-ecs-exec-access-your-containers-fargate-ec2/).
+
+You can also view some additional documentation on using ECS Exec [here](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-exec.html).
 
 ## Usage
 
