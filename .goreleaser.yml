@@ -2,35 +2,35 @@ before:
   hooks:
     - go mod tidy
 builds:
-- dir: cmd
-  env:
-    - CGO_ENABLED=0
-  goos:
-    - linux
-    - darwin
-  goarch:
-    - amd64
-    - arm64
-  mod_timestamp: '{{ .CommitTimestamp }}'
-  flags:
-    - -trimpath
-  ldflags:
-    - -s -w
-    - -X github.com/tedsmitt/ecsgo/internal/pkg.version={{.Version}}
-    - -X github.com/tedsmitt/ecsgo/internal/pkg.commit={{.Commit}}
-    - -X github.com/tedsmitt/ecsgo/internal/pkg.date={{ .CommitDate }}
-    - -X github.com/tedsmitt/ecsgo/internal/pkg.builtBy=goreleaser
+  - dir: cmd
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X github.com/tedsmitt/ecsgo/internal/pkg.version={{.Version}}
+      - -X github.com/tedsmitt/ecsgo/internal/pkg.commit={{.Commit}}
+      - -X github.com/tedsmitt/ecsgo/internal/pkg.date={{ .CommitDate }}
+      - -X github.com/tedsmitt/ecsgo/internal/pkg.builtBy=goreleaser
 changelog:
   sort: asc
   filters:
     exclude:
-    - '^docs:'
-    - '^test:'
-    - Merge pull request
-    - Merge branch
-    - go mod tidy
+      - "^docs:"
+      - "^test:"
+      - Merge pull request
+      - Merge branch
+      - go mod tidy
 archives:
-  - name_template: '{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}'
+  - name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}"
     replacements:
       darwin: Darwin
       linux: Linux
@@ -38,8 +38,8 @@ archives:
       386: i386
       amd64: x86_64
     format_overrides:
-    - goos: windows
-      format: zip
+      - goos: windows
+        format: zip
     files:
       - README.md
       - LICENSE
@@ -55,10 +55,10 @@ brews:
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
     commit_author:
       name: tedsmitt
-      email: edwardsmith92@outlook.com
+      email: ed@edintheclouds.io
     description: "Interactive CLI tool which acts as a wrapper around the ECS ExecuteCommand API."
     license: Apache2
     test: |
       system "#{bin}/goreleaser -v"
     dependencies:
-    - name: go
+      - name: go
