@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -10,7 +9,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ecs"
 	"github.com/aws/aws-sdk-go/service/ecs/ecsiface"
-	"github.com/aws/aws-sdk-go/service/ssm"
 	"github.com/spf13/viper"
 )
 
@@ -230,35 +228,11 @@ func (e *ExecCommand) executeCmd() {
 		command = "/bin/sh"
 	}
 
-	execCommand, err := e.client.ExecuteCommand(&ecs.ExecuteCommandInput{
-		Cluster:     aws.String(e.cluster),
-		Interactive: aws.Bool(true),
-		Task:        e.task.TaskArn,
-		Command:     aws.String(command),
-		Container:   e.container.Name,
-	})
-	if err != nil {
-		e.err <- err
-		return
-	}
-	execSess, err := json.Marshal(execCommand.Session)
-	if err != nil {
-		e.err <- err
-		return
-	}
-	target := ssm.StartSessionInput{
-		Target: aws.String(fmt.Sprintf("ecs:%s_%s_%s", e.cluster, e.task, *e.container.RuntimeId)),
-	}
-	targetJson, err := json.Marshal(target)
-	if err != nil {
-		e.err <- err
-		return
-	}
-
 	fmt.Printf("\nCluster: %v | Service: %v | Task: %s", cyan(e.cluster), magenta(e.service), green(strings.Split(*e.task.TaskArn, "/")[2]))
 	fmt.Printf("\nConnecting to container %v", yellow(*e.container.Name))
 	// Expecting session-manager-plugin to be found in $PATH
-	if err = runCommand("session-manager-plugin", string(execSess), e.region, "StartSession", "", string(targetJson), e.endpoint); err != nil {
+	if err := runCommand("aws", "ecs", "execute-command", "--cluster", e.cluster,
+		"--task", *e.task.TaskArn, "--command", command, "--interactive"); err != nil {
 		e.done <- true
 		e.err <- err
 		return
