@@ -49,7 +49,7 @@ func CreateExecCommand() *ExecCommand {
 // Start begins a goroutine that listens on the cmd channel for instructions
 func (e *ExecCommand) Start() {
 	// Before we do anything make sure that the session-manager-plugin is available in $PATH, exit if it isn't
-	_, err := exec.LookPath("session-manager-plugin1")
+	_, err := exec.LookPath("session-manager-plugin")
 	if err != nil {
 		fmt.Println(red("session-manager-plugin isn't installed or wasn't found in $PATH - https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html"))
 		os.Exit(1)
