@@ -154,7 +154,9 @@ func (e *ExecCommand) getService() {
 		return
 
 	} else {
-		e.err <- err
+		// Continue without setting a service if no services are found in the cluster
+		fmt.Printf(yellow("\n%s"), "No services found in the cluster, returning all running tasks...")
+		e.cmd <- "getTask"
 		return
 	}
 }
