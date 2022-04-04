@@ -27,7 +27,7 @@ var (
 	green   = color.New(color.FgGreen).SprintFunc()
 	yellow  = color.New(color.FgYellow).SprintFunc()
 
-	backOpt = "⏎ Back"
+	backOpt = "⏎ Back" // backOpt is used to allow the user to navigate backwards in the selection prompt
 
 	version = "unset"
 	commit  = "unset"
@@ -73,6 +73,7 @@ func selectCluster(clusterNames []string) (string, error) {
 	if flag.Lookup("test.v") != nil {
 		return clusterNames[0], nil
 	}
+
 	prompt := &survey.Select{
 		Message: "Select a cluster:",
 		Options: clusterNames,
@@ -95,6 +96,7 @@ func selectService(serviceNames []string) (string, error) {
 	if flag.Lookup("test.v") != nil {
 		return serviceNames[0], nil
 	}
+
 	serviceNames = append(serviceNames, "*")
 
 	prompt := &survey.Select{
@@ -145,6 +147,7 @@ func selectTask(tasks map[string]*ecs.Task) (*ecs.Task, error) {
 	if err != nil {
 		return &ecs.Task{}, err
 	}
+
 	if selection == backOpt {
 		return &ecs.Task{TaskArn: aws.String(backOpt)}, nil
 	}
@@ -160,6 +163,7 @@ func selectContainer(containers []*ecs.Container) (*ecs.Container, error) {
 	if flag.Lookup("test.v") != nil {
 		return containers[0], nil
 	}
+
 	var containerNames []string
 	for _, c := range containers {
 		containerNames = append(containerNames, *c.Name)

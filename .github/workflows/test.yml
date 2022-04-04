@@ -18,7 +18,7 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@v2
         with:
-          go-version: 1.16
+          go-version: 1.18
 
       - name: Install dependencies
         run: |
@@ -27,7 +27,7 @@ jobs:
           git checkout HEAD -- go.sum go.mod
 
       - name: Run tests
-        run: go test -v ./internal/pkg
+        run: go test -v ./internal
 
       - name: Build
         uses: goreleaser/goreleaser-action@v2

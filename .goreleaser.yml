@@ -16,10 +16,10 @@ builds:
       - -trimpath
     ldflags:
       - -s -w
-      - -X github.com/tedsmitt/ecsgo/internal/pkg.version={{.Version}}
-      - -X github.com/tedsmitt/ecsgo/internal/pkg.commit={{.Commit}}
-      - -X github.com/tedsmitt/ecsgo/internal/pkg.date={{ .CommitDate }}
-      - -X github.com/tedsmitt/ecsgo/internal/pkg.builtBy=goreleaser
+      - -X github.com/tedsmitt/ecsgo/internal.version={{.Version}}
+      - -X github.com/tedsmitt/ecsgo/internal.commit={{.Commit}}
+      - -X github.com/tedsmitt/ecsgo/internal.date={{ .CommitDate }}
+      - -X github.com/tedsmitt/ecsgo/internal.builtBy=goreleaser
 changelog:
   sort: asc
   filters:

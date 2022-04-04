@@ -31,8 +31,7 @@ type ExecCommand struct {
 	containers []*ecs.Container
 }
 
-// CreateExecCommand initialises a new ExecCommand struct with the required
-// initial values
+// CreateExecCommand initialises a new ExecCommand struct with the required initial values
 func CreateExecCommand() *ExecCommand {
 	client := createEcsClient()
 	e := &ExecCommand{
@@ -43,6 +42,7 @@ func CreateExecCommand() *ExecCommand {
 		region:   client.SigningRegion,
 		endpoint: client.Endpoint,
 	}
+
 	return e
 }
 
@@ -79,7 +79,8 @@ func (e *ExecCommand) Start() {
 			}
 		}
 	}()
-	// Initialise the workflow
+
+	// Initiate the workflow
 	e.cmd <- "getCluster"
 	// Block until we receive a message on the done channel
 	<-e.done
@@ -92,6 +93,7 @@ func (e *ExecCommand) getCluster() {
 		e.err <- err
 		return
 	}
+
 	if len(list.ClusterArns) > 0 {
 		var clusterNames []string
 		for _, c := range list.ClusterArns {
@@ -99,14 +101,17 @@ func (e *ExecCommand) getCluster() {
 			name := arnSplit[len(arnSplit)-1]
 			clusterNames = append(clusterNames, name)
 		}
+
 		selection, err := selectCluster(clusterNames)
 		if err != nil {
 			e.err <- err
 			return
 		}
+
 		e.cluster = selection
 		e.cmd <- "getService"
 		return
+
 	} else {
 		err := errors.New("No clusters found in account or region")
 		e.err <- err
@@ -123,27 +128,35 @@ func (e *ExecCommand) getService() {
 		e.err <- err
 		return
 	}
+
 	if len(list.ServiceArns) > 0 {
 		var serviceNames []string
+
 		for _, c := range list.ServiceArns {
 			arnSplit := strings.Split(*c, "/")
 			name := arnSplit[len(arnSplit)-1]
 			serviceNames = append(serviceNames, name)
 		}
+
 		selection, err := selectService(serviceNames)
 		if err != nil {
 			e.err <- err
 			return
 		}
+
 		if selection == backOpt {
 			e.cmd <- "getCluster"
 			return
 		}
+
 		e.service = selection
 		e.cmd <- "getTask"
 		return
+
 	} else {
-		e.err <- err
+		// Continue without setting a service if no services are found in the cluster
+		fmt.Printf(yellow("\n%s"), "No services found in the cluster, returning all running tasks...")
+		e.cmd <- "getTask"
 		return
 	}
 }
@@ -151,7 +164,10 @@ func (e *ExecCommand) getService() {
 // Lists tasks in a cluster and prompts the user to select one
 func (e *ExecCommand) getTask() {
 	var input *ecs.ListTasksInput
-	if e.service == "*" {
+
+	// If no service has been set, or if ALL (*) services have been selected
+	// then we don't need to specify a ServiceName
+	if e.service == "" || e.service == "*" {
 		input = &ecs.ListTasksInput{
 			Cluster: aws.String(e.cluster),
 		}
@@ -161,11 +177,13 @@ func (e *ExecCommand) getTask() {
 			ServiceName: aws.String(e.service),
 		}
 	}
+
 	list, err := e.client.ListTasks(input)
 	if err != nil {
 		e.err <- err
 		return
 	}
+
 	e.tasks = make(map[string]*ecs.Task)
 	if len(list.TaskArns) > 0 {
 		describe, err := e.client.DescribeTasks(&ecs.DescribeTasksInput{
@@ -176,24 +194,27 @@ func (e *ExecCommand) getTask() {
 			e.err <- err
 			return
 		}
-		// Add each task to a map for easier retrieval
+
 		for _, t := range describe.Tasks {
 			taskId := strings.Split(*t.TaskArn, "/")[2]
 			e.tasks[taskId] = t
 		}
-		// Ask the user to select which Task to connect to
+
 		selection, err := selectTask(e.tasks)
 		if err != nil {
 			e.err <- err
 			return
 		}
+
 		if *selection.TaskArn == backOpt {
 			e.cmd <- "getService"
 			return
 		}
+
 		e.task = selection
 		e.cmd <- "getContainer"
 		return
+
 	} else {
 		err := errors.New(fmt.Sprintf("There are no running tasks in the cluster %s", e.cluster))
 		e.err <- err
@@ -205,19 +226,21 @@ func (e *ExecCommand) getTask() {
 // otherwise returns the the only container in the task
 func (e *ExecCommand) getContainer() {
 	if len(e.task.Containers) > 1 {
-		// Ask the user to select a container
 		selection, err := selectContainer(e.task.Containers)
 		if err != nil {
 			e.err <- err
 			return
 		}
+
 		if *selection.Name == backOpt {
 			e.cmd <- "getTask"
 			return
 		}
+
 		e.container = selection
 		e.cmd <- "executeCommand"
 		return
+
 	} else {
 		// There is only one container in the task, return it
 		e.container = e.task.Containers[0]
@@ -229,8 +252,7 @@ func (e *ExecCommand) getContainer() {
 // executeCmd takes all of our previous values and builds a session for us
 // and then calls runCommand to execute the session input via session-manager-plugin
 func (e *ExecCommand) executeCmd() {
-	// Check if command has been passed to the tool, otherwise default
-	// to /bin/sh
+	// Check if command has been passed to the tool, otherwise default to /bin/sh
 	var command string
 	if viper.GetString("cmd") != "" {
 		command = viper.GetString("cmd")
@@ -267,8 +289,11 @@ func (e *ExecCommand) executeCmd() {
 		return
 	}
 
+	// Print Cluster/Service/Task information to the console
 	fmt.Printf("\nCluster: %v | Service: %v | Task: %s", cyan(e.cluster), magenta(e.service), green(strings.Split(*e.task.TaskArn, "/")[2]))
 	fmt.Printf("\nConnecting to container %v", yellow(*e.container.Name))
+
+	// Execute the session-manager-plugin with our task details
 	if err = runCommand("session-manager-plugin", string(execSess), e.region, "StartSession", "", string(targetJson), e.endpoint); err != nil {
 		e.done <- true
 		e.err <- err
