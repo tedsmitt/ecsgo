@@ -23,43 +23,47 @@ type MockECSAPI struct {
 	ExecuteCommandMock func(input *ecs.ExecuteCommandInput) (*ecs.ExecuteCommandOutput, error)
 }
 
-func (m *MockECSAPI) ListClusters(input *ecs.ListClustersInput) (*ecs.ListClustersOutput, error) { // This allows the test to use the same method
+func (m *MockECSAPI) ListClusters(input *ecs.ListClustersInput) (*ecs.ListClustersOutput, error) {
 	if m.ListClustersMock != nil {
-		return m.ListClustersMock(input) // We intercept and return a made up reply
+		return m.ListClustersMock(input)
 	}
-	return nil, nil // return any value you think is good for you
+
+	return nil, nil
 }
 
-func (m *MockECSAPI) ListServices(input *ecs.ListServicesInput) (*ecs.ListServicesOutput, error) { // This allows the test to use the same method
+func (m *MockECSAPI) ListServices(input *ecs.ListServicesInput) (*ecs.ListServicesOutput, error) {
 	if m.ListServicesMock != nil {
-		return m.ListServicesMock(input) // We intercept and return a made up reply
+		return m.ListServicesMock(input)
 	}
-	return nil, nil // return any value you think is good for you
+
+	return nil, nil
 }
 
-func (m *MockECSAPI) ListTasks(input *ecs.ListTasksInput) (*ecs.ListTasksOutput, error) { // This allows the test to use the same method
+func (m *MockECSAPI) ListTasks(input *ecs.ListTasksInput) (*ecs.ListTasksOutput, error) {
 	if m.ListTasksMock != nil {
-		return m.ListTasksMock(input) // We intercept and return a made up reply
+		return m.ListTasksMock(input)
 	}
-	return nil, nil // return any value you think is good for you
+
+	return nil, nil
 }
 
-func (m *MockECSAPI) DescribeTasks(input *ecs.DescribeTasksInput) (*ecs.DescribeTasksOutput, error) { // This allows the test to use the same method
+func (m *MockECSAPI) DescribeTasks(input *ecs.DescribeTasksInput) (*ecs.DescribeTasksOutput, error) {
 	if m.DescribeTasksMock != nil {
-		return m.DescribeTasksMock(input) // We intercept and return a made up reply
+		return m.DescribeTasksMock(input)
 	}
-	return nil, nil // return any value you think is good for you
+
+	return nil, nil
 }
 
-func (m *MockECSAPI) ExecuteCommand(input *ecs.ExecuteCommandInput) (*ecs.ExecuteCommandOutput, error) { // This allows the test to use the same method
+func (m *MockECSAPI) ExecuteCommand(input *ecs.ExecuteCommandInput) (*ecs.ExecuteCommandOutput, error) {
 	if m.ExecuteCommandMock != nil {
-		return m.ExecuteCommandMock(input) // We intercept and return a made up reply
+		return m.ExecuteCommandMock(input)
 	}
-	return nil, nil // return any value you think is good for you
+
+	return nil, nil
 }
 
-// CreateMockExecCommand initialises a new ExecCommand struct and takes a MockClient
-// as an argument - only used in unit tests.
+// CreateMockExecCommand initialises a new ExecCommand struct and takes a MockClient as an argument - only used in tests
 func CreateMockExecCommand(c *MockECSAPI) *ExecCommand {
 	e := &ExecCommand{
 		cmd:      make(chan string, 1),
@@ -69,6 +73,7 @@ func CreateMockExecCommand(c *MockECSAPI) *ExecCommand {
 		region:   "eu-west-1",
 		endpoint: "ecs.eu-west-1.amazonaws.com",
 	}
+
 	return e
 }
 
@@ -104,6 +109,7 @@ func TestGetCluster(t *testing.T) {
 			expected: "",
 		},
 	}
+
 	for _, c := range cases {
 		cmd := CreateMockExecCommand(c.client)
 		cmd.getCluster()
@@ -143,6 +149,7 @@ func TestGetService(t *testing.T) {
 			expected: "",
 		},
 	}
+
 	for _, c := range cases {
 		cmd := CreateMockExecCommand(c.client)
 		cmd.cluster = "execCommand"
@@ -193,6 +200,7 @@ func TestGetTask(t *testing.T) {
 			expected: nil,
 		},
 	}
+
 	for _, c := range cases {
 		cmd := CreateMockExecCommand(c.client)
 		cmd.cluster = "execCommand"
@@ -241,6 +249,7 @@ func TestGetContainer(t *testing.T) {
 			},
 		},
 	}
+
 	for _, c := range cases {
 		cmd := CreateMockExecCommand(c.client)
 		cmd.task = c.task
@@ -248,69 +257,3 @@ func TestGetContainer(t *testing.T) {
 		assert.Equal(t, c.expected, cmd.container)
 	}
 }
-
-/* func TestStartExecuteCommand(t *testing.T) {
-	cases := []struct {
-		name     string
-		client   *MockECSAPI
-		expected error
-	}{
-		{
-			name: "TestStartExecuteCommandWithClusters",
-			client: &MockECSAPI{
-				ListClustersMock: func(input *ecs.ListClustersInput) (*ecs.ListClustersOutput, error) {
-					return &ecs.ListClustersOutput{
-						ClusterArns: []*string{
-							aws.String("arn:aws:ecs:eu-west-1:1111111111:cluster/execCommand"),
-							aws.String("arn:aws:ecs:eu-west-1:1111111111:cluster/bluegreen"),
-						},
-					}, nil
-				},
-				ListServicesMock: func(input *ecs.ListServicesInput) (*ecs.ListServicesOutput, error) {
-					return &ecs.ListServicesOutput{
-						ServiceArns: []*string{
-							aws.String("arn:aws:ecs:eu-west-1:1111111111:cluster/execCommand/test-service-1"),
-						},
-					}, nil
-				},
-				ListTasksMock: func(input *ecs.ListTasksInput) (*ecs.ListTasksOutput, error) {
-					return &ecs.ListTasksOutput{
-						TaskArns: []*string{
-							aws.String("arn:aws:ecs:eu-west-1:111111111111:task/execCommand/8a58117dac38436ba5547e9da5d3ac3d"),
-						},
-					}, nil
-				},
-				DescribeTasksMock: func(input *ecs.DescribeTasksInput) (*ecs.DescribeTasksOutput, error) {
-					return &ecs.DescribeTasksOutput{
-						Tasks: []*ecs.Task{
-							{
-								TaskArn: aws.String("arn:aws:ecs:eu-west-1:111111111111:task/execCommand/8a58117dac38436ba5547e9da5d3ac3d"),
-								Containers: []*ecs.Container{
-									{
-										Name:      aws.String("echo-server"),
-										RuntimeId: aws.String("8a58117dac38436ba5547e9da5d3ac3d-1527056392"),
-									},
-								},
-							},
-						},
-					}, nil
-				},
-				ExecuteCommandMock: func(input *ecs.ExecuteCommandInput) (*ecs.ExecuteCommandOutput, error) {
-					return &ecs.ExecuteCommandOutput{
-						Session: &ecs.Session{
-							SessionId:  aws.String("ecs-execute-command-05b8e510e3433762c"),
-							StreamUrl:  aws.String("wss://ssmmessages.eu-west-1.amazonaws.com/v1/data-channel/ecs-execute-command-05b8e510e3433762c?role=publish_subscribe"),
-							TokenValue: aws.String("ABCDEF123456"),
-						},
-					}, nil
-				},
-			},
-			expected: nil, // If we execute with the session details above then we actually get a clean exit from session-manager-plugin, so we don't expect an error
-		},
-	}
-	for _, c := range cases {
-		result := StartExecuteCommand(c.client)
-		assert.Equal(t, c.expected, result)
-	}
-}
-*/
