@@ -207,6 +207,10 @@ func (e *ExecCommand) getTask() {
 		}
 
 		if *selection.TaskArn == backOpt {
+			if e.service == "" {
+				e.cmd <- "getCluster"
+				return
+			}
 			e.cmd <- "getService"
 			return
 		}
