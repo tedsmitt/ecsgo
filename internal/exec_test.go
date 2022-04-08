@@ -66,7 +66,7 @@ func (m *MockECSAPI) ExecuteCommand(input *ecs.ExecuteCommandInput) (*ecs.Execut
 // CreateMockExecCommand initialises a new ExecCommand struct and takes a MockClient as an argument - only used in tests
 func CreateMockExecCommand(c *MockECSAPI) *ExecCommand {
 	e := &ExecCommand{
-		cmd:      make(chan string, 1),
+		input:    make(chan string, 1),
 		err:      make(chan error, 1),
 		done:     make(chan bool),
 		client:   c,
@@ -111,9 +111,9 @@ func TestGetCluster(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		cmd := CreateMockExecCommand(c.client)
-		cmd.getCluster()
-		assert.Equal(t, c.expected, cmd.cluster)
+		input := CreateMockExecCommand(c.client)
+		input.getCluster()
+		assert.Equal(t, c.expected, input.cluster)
 	}
 }
 
@@ -151,10 +151,10 @@ func TestGetService(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		cmd := CreateMockExecCommand(c.client)
-		cmd.cluster = "execCommand"
-		cmd.getService()
-		assert.Equal(t, c.expected, cmd.service)
+		input := CreateMockExecCommand(c.client)
+		input.cluster = "execCommand"
+		input.getService()
+		assert.Equal(t, c.expected, input.service)
 	}
 }
 
@@ -202,11 +202,11 @@ func TestGetTask(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		cmd := CreateMockExecCommand(c.client)
-		cmd.cluster = "execCommand"
-		cmd.service = "test-service-1"
-		cmd.getTask()
-		assert.Equal(t, c.expected, cmd.task)
+		input := CreateMockExecCommand(c.client)
+		input.cluster = "execCommand"
+		input.service = "test-service-1"
+		input.getTask()
+		assert.Equal(t, c.expected, input.task)
 	}
 }
 
@@ -251,9 +251,9 @@ func TestGetContainer(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		cmd := CreateMockExecCommand(c.client)
-		cmd.task = c.task
-		cmd.getContainer()
-		assert.Equal(t, c.expected, cmd.container)
+		input := CreateMockExecCommand(c.client)
+		input.task = c.task
+		input.getContainer()
+		assert.Equal(t, c.expected, input.container)
 	}
 }

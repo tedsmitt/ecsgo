@@ -17,7 +17,7 @@ import (
 
 // ExecCommand is a struct that contains information about our command state
 type ExecCommand struct {
-	cmd        chan string
+	input      chan string
 	err        chan error
 	done       chan bool
 	client     ecsiface.ECSAPI
@@ -35,7 +35,7 @@ type ExecCommand struct {
 func CreateExecCommand() *ExecCommand {
 	client := createEcsClient()
 	e := &ExecCommand{
-		cmd:      make(chan string, 1),
+		input:    make(chan string, 1),
 		err:      make(chan error, 1),
 		done:     make(chan bool),
 		client:   client,
@@ -46,7 +46,7 @@ func CreateExecCommand() *ExecCommand {
 	return e
 }
 
-// Start begins a goroutine that listens on the cmd channel for instructions
+// Start begins a goroutine that listens on the input channel for instructions
 func (e *ExecCommand) Start() {
 	// Before we do anything make sure that the session-manager-plugin is available in $PATH, exit if it isn't
 	_, err := exec.LookPath("session-manager-plugin")
@@ -58,8 +58,8 @@ func (e *ExecCommand) Start() {
 	go func() {
 		for {
 			select {
-			case cmd := <-e.cmd:
-				switch cmd {
+			case input := <-e.input:
+				switch input {
 				case "getCluster":
 					e.getCluster()
 				case "getService":
@@ -69,7 +69,7 @@ func (e *ExecCommand) Start() {
 				case "getContainer":
 					e.getContainer()
 				case "executeCommand":
-					e.executeCmd()
+					e.executeinput()
 				default:
 					e.getCluster()
 				}
@@ -81,7 +81,7 @@ func (e *ExecCommand) Start() {
 	}()
 
 	// Initiate the workflow
-	e.cmd <- "getCluster"
+	e.input <- "getCluster"
 	// Block until we receive a message on the done channel
 	<-e.done
 }
@@ -109,7 +109,7 @@ func (e *ExecCommand) getCluster() {
 		}
 
 		e.cluster = selection
-		e.cmd <- "getService"
+		e.input <- "getService"
 		return
 
 	} else {
@@ -145,18 +145,18 @@ func (e *ExecCommand) getService() {
 		}
 
 		if selection == backOpt {
-			e.cmd <- "getCluster"
+			e.input <- "getCluster"
 			return
 		}
 
 		e.service = selection
-		e.cmd <- "getTask"
+		e.input <- "getTask"
 		return
 
 	} else {
 		// Continue without setting a service if no services are found in the cluster
 		fmt.Printf(yellow("\n%s"), "No services found in the cluster, returning all running tasks...")
-		e.cmd <- "getTask"
+		e.input <- "getTask"
 		return
 	}
 }
@@ -208,15 +208,15 @@ func (e *ExecCommand) getTask() {
 
 		if *selection.TaskArn == backOpt {
 			if e.service == "" {
-				e.cmd <- "getCluster"
+				e.input <- "getCluster"
 				return
 			}
-			e.cmd <- "getService"
+			e.input <- "getService"
 			return
 		}
 
 		e.task = selection
-		e.cmd <- "getContainer"
+		e.input <- "getContainer"
 		return
 
 	} else {
@@ -237,31 +237,35 @@ func (e *ExecCommand) getContainer() {
 		}
 
 		if *selection.Name == backOpt {
-			e.cmd <- "getTask"
+			e.input <- "getTask"
 			return
 		}
 
 		e.container = selection
-		e.cmd <- "executeCommand"
+		e.input <- "executeCommand"
 		return
 
 	} else {
 		// There is only one container in the task, return it
 		e.container = e.task.Containers[0]
-		e.cmd <- "executeCommand"
+		e.input <- "executeCommand"
 		return
 	}
 }
 
-// executeCmd takes all of our previous values and builds a session for us
+// executeinput takes all of our previous values and builds a session for us
 // and then calls runCommand to execute the session input via session-manager-plugin
-func (e *ExecCommand) executeCmd() {
+func (e *ExecCommand) executeinput() {
 	// Check if command has been passed to the tool, otherwise default to /bin/sh
 	var command string
 	if viper.GetString("cmd") != "" {
 		command = viper.GetString("cmd")
 	} else {
-		command = "/bin/sh"
+		if strings.Contains(*e.task.PlatformFamily, "Windows") {
+			command = "powershell.exe"
+		} else {
+			command = "/bin/sh"
+		}
 	}
 
 	execCommand, err := e.client.ExecuteCommand(&ecs.ExecuteCommandInput{
