@@ -69,7 +69,7 @@ func (e *ExecCommand) Start() {
 				case "getContainer":
 					e.getContainer()
 				case "executeCommand":
-					e.executeinput()
+					e.executeInput()
 				default:
 					e.getCluster()
 				}
@@ -253,9 +253,9 @@ func (e *ExecCommand) getContainer() {
 	}
 }
 
-// executeinput takes all of our previous values and builds a session for us
+// executeInput takes all of our previous values and builds a session for us
 // and then calls runCommand to execute the session input via session-manager-plugin
-func (e *ExecCommand) executeinput() {
+func (e *ExecCommand) executeInput() {
 	// Check if command has been passed to the tool, otherwise default to /bin/sh
 	var command string
 	if viper.GetString("cmd") != "" {
