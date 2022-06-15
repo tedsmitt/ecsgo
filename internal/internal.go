@@ -77,6 +77,7 @@ func selectCluster(clusterNames []string) (string, error) {
 	prompt := &survey.Select{
 		Message: "Select a cluster:",
 		Options: clusterNames,
+		Default: clusterNames[0],
 	}
 
 	var selection string
@@ -175,6 +176,7 @@ func selectContainer(containers []*ecs.Container) (*ecs.Container, error) {
 	var prompt = &survey.Select{
 		Message: "Multiple containers found, please select:",
 		Options: createOpts(containerNames),
+		Default: containerNames[0],
 	}
 
 	err := survey.AskOne(prompt, &selection, survey.WithIcons(func(icons *survey.IconSet) {
