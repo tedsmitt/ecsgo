@@ -203,6 +203,14 @@ func (e *ExecCommand) getTask() {
 			e.tasks[taskId] = t
 		}
 
+		if len(e.tasks) == 1 {
+			for _, t := range e.tasks {
+				e.task = t
+				e.input <- "getContainer"
+				return
+			}
+		}
+
 		selection, err := selectTask(e.tasks)
 		if err != nil {
 			e.err <- err
