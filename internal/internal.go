@@ -102,6 +102,7 @@ func selectService(serviceNames []string) (string, error) {
 	prompt := &survey.Select{
 		Message: fmt.Sprintf("Select a service: %s", yellow("(choose * to display all tasks)")),
 		Options: createOpts(serviceNames),
+		Default: serviceNames[0],
 	}
 
 	var selection string
@@ -137,6 +138,7 @@ func selectTask(tasks map[string]*ecs.Task) (*ecs.Task, error) {
 	prompt := &survey.Select{
 		Message: "Select a task:",
 		Options: createOpts(taskOpts),
+		Default: taskOpts[0],
 	}
 
 	var selection string

@@ -94,14 +94,19 @@ func (e *ExecCommand) getCluster() {
 		return
 	}
 
-	if len(list.ClusterArns) > 0 {
-		var clusterNames []string
-		for _, c := range list.ClusterArns {
-			arnSplit := strings.Split(*c, "/")
-			name := arnSplit[len(arnSplit)-1]
-			clusterNames = append(clusterNames, name)
-		}
+	var clusterNames []string
+	for _, c := range list.ClusterArns {
+		arnSplit := strings.Split(*c, "/")
+		name := arnSplit[len(arnSplit)-1]
+		clusterNames = append(clusterNames, name)
+	}
 
+	switch {
+	case len(clusterNames) == 1:
+		e.cluster = clusterNames[0]
+		e.input <- "getService"
+		return
+	case len(clusterNames) > 1:
 		selection, err := selectCluster(clusterNames)
 		if err != nil {
 			e.err <- err
@@ -111,8 +116,7 @@ func (e *ExecCommand) getCluster() {
 		e.cluster = selection
 		e.input <- "getService"
 		return
-
-	} else {
+	default:
 		err := errors.New("No clusters found in account or region")
 		e.err <- err
 		return
@@ -129,15 +133,14 @@ func (e *ExecCommand) getService() {
 		return
 	}
 
-	if len(list.ServiceArns) > 0 {
-		var serviceNames []string
+	var serviceNames []string
+	for _, c := range list.ServiceArns {
+		arnSplit := strings.Split(*c, "/")
+		name := arnSplit[len(arnSplit)-1]
+		serviceNames = append(serviceNames, name)
+	}
 
-		for _, c := range list.ServiceArns {
-			arnSplit := strings.Split(*c, "/")
-			name := arnSplit[len(arnSplit)-1]
-			serviceNames = append(serviceNames, name)
-		}
-
+	if len(serviceNames) > 0 {
 		selection, err := selectService(serviceNames)
 		if err != nil {
 			e.err <- err
@@ -229,7 +232,12 @@ func (e *ExecCommand) getTask() {
 // Lists containers in a task and prompts the user to select one (if there is more than 1 container)
 // otherwise returns the the only container in the task
 func (e *ExecCommand) getContainer() {
-	if len(e.task.Containers) > 1 {
+	switch {
+	case len(e.task.Containers) == 1:
+		e.container = e.task.Containers[0]
+		e.input <- "executeCommand"
+		return
+	case len(e.task.Containers) > 1:
 		selection, err := selectContainer(e.task.Containers)
 		if err != nil {
 			e.err <- err
@@ -245,7 +253,7 @@ func (e *ExecCommand) getContainer() {
 		e.input <- "executeCommand"
 		return
 
-	} else {
+	default:
 		// There is only one container in the task, return it
 		e.container = e.task.Containers[0]
 		e.input <- "executeCommand"
