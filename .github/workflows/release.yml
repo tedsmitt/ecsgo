@@ -1,9 +1,9 @@
-name: Release
+name: Create Release
 
 on:
   push:
     tags:
-      - "*"
+      - "*.*.*"
 
 jobs:
   Release:
@@ -18,6 +18,15 @@ jobs:
         uses: actions/setup-go@v2
         with:
           go-version: 1.18
+
+      - name: Install dependencies
+        run: |
+          go mod tidy
+          # reset go.sum and go.mod so goreleaser won't complain about dirty git state
+          git checkout HEAD -- go.sum go.mod
+
+      - name: Run tests
+        run: go test -v ./internal
 
       - name: Build
         uses: goreleaser/goreleaser-action@v2
