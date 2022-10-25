@@ -188,7 +188,7 @@ func selectContainer(containers []*ecs.Container) (*ecs.Container, error) {
 
 	var container *ecs.Container
 	for _, c := range containers {
-		if strings.Contains(*c.Name, selection) {
+		if selection == *c.Name {
 			container = c
 		}
 	}
