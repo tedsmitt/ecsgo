@@ -75,8 +75,8 @@ resource "aws_ecs_cluster_capacity_providers" "test" {
 resource "aws_ecs_task_definition" "test" {
   family                   = "test"
   requires_compatibilities = ["FARGATE"]
-  cpu                      = 512
-  memory                   = 1024
+  cpu                      = 1024
+  memory                   = 2048
   network_mode             = "awsvpc"
   task_role_arn            = aws_iam_role.test.arn
   execution_role_arn       = aws_iam_role.test_exec.arn
@@ -112,6 +112,26 @@ resource "aws_ecs_task_definition" "test" {
         {
           containerPort = 6379
           hostPort      = 6379
+      }]
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group" : aws_cloudwatch_log_group.test.id
+          "awslogs-region" : "eu-west-1"
+          "awslogs-stream-prefix" : "ecs"
+        }
+      }
+    },
+    {
+      name      = "rabbitmq"
+      image     = "rabbitmq:latest"
+      cpu       = 256
+      memory    = 512
+      essential = true
+      portMappings = [
+        {
+          containerPort = 5672
+          hostPort      = 5672
       }]
       logConfiguration = {
         logDriver = "awslogs"
