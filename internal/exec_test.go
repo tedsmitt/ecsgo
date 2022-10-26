@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"os"
 	"testing"
 
@@ -68,7 +69,7 @@ func CreateMockExecCommand(c *MockECSAPI) *ExecCommand {
 	e := &ExecCommand{
 		input:    make(chan string, 1),
 		err:      make(chan error, 1),
-		done:     make(chan bool),
+		exit:     make(chan error, 1),
 		client:   c,
 		region:   "eu-west-1",
 		endpoint: "ecs.eu-west-1.amazonaws.com",
@@ -98,6 +99,19 @@ func TestGetCluster(t *testing.T) {
 			expected: "execCommand",
 		},
 		{
+			name: "TestGetClusterWithSingleResult",
+			client: &MockECSAPI{
+				ListClustersMock: func(input *ecs.ListClustersInput) (*ecs.ListClustersOutput, error) {
+					return &ecs.ListClustersOutput{
+						ClusterArns: []*string{
+							aws.String("arn:aws:ecs:eu-west-1:1111111111:cluster/execCommand"),
+						},
+					}, nil
+				},
+			},
+			expected: "execCommand",
+		},
+		{
 			name: "TestGetClusterWithoutResults",
 			client: &MockECSAPI{
 				ListClustersMock: func(input *ecs.ListClustersInput) (*ecs.ListClustersOutput, error) {
@@ -113,7 +127,10 @@ func TestGetCluster(t *testing.T) {
 	for _, c := range cases {
 		input := CreateMockExecCommand(c.client)
 		input.getCluster()
-		assert.Equal(t, c.expected, input.cluster)
+		if ok := assert.Equal(t, c.expected, input.cluster); ok != true {
+			fmt.Printf("%s FAILED\n", c.name)
+		}
+		fmt.Printf("%s PASSED\n", c.name)
 	}
 }
 
@@ -154,7 +171,10 @@ func TestGetService(t *testing.T) {
 		input := CreateMockExecCommand(c.client)
 		input.cluster = "execCommand"
 		input.getService()
-		assert.Equal(t, c.expected, input.service)
+		if ok := assert.Equal(t, c.expected, input.service); ok != true {
+			fmt.Printf("%s FAILED\n", c.name)
+		}
+		fmt.Printf("%s PASSED\n", c.name)
 	}
 }
 
@@ -206,7 +226,10 @@ func TestGetTask(t *testing.T) {
 		input.cluster = "execCommand"
 		input.service = "test-service-1"
 		input.getTask()
-		assert.Equal(t, c.expected, input.task)
+		if ok := assert.Equal(t, c.expected, input.task); ok != true {
+			fmt.Printf("%s FAILED\n", c.name)
+		}
+		fmt.Printf("%s PASSED\n", c.name)
 	}
 }
 
@@ -254,6 +277,129 @@ func TestGetContainer(t *testing.T) {
 		input := CreateMockExecCommand(c.client)
 		input.task = c.task
 		input.getContainer()
-		assert.Equal(t, c.expected, input.container)
+		if ok := assert.Equal(t, c.expected, input.container); ok != true {
+			fmt.Printf("%s FAILED\n", c.name)
+		}
+		fmt.Printf("%s PASSED\n", c.name)
+	}
+}
+
+func TestExecuteInput(t *testing.T) {
+	cases := []struct {
+		name     string
+		client   *MockECSAPI
+		expected error
+	}{
+		{
+			name: "TestExecuteInputWithServices",
+			client: &MockECSAPI{
+				ListClustersMock: func(input *ecs.ListClustersInput) (*ecs.ListClustersOutput, error) {
+					return &ecs.ListClustersOutput{
+						ClusterArns: []*string{
+							aws.String("arn:aws:ecs:eu-west-1:1111111111:cluster/execCommand"),
+						},
+					}, nil
+				},
+				ListServicesMock: func(input *ecs.ListServicesInput) (*ecs.ListServicesOutput, error) {
+					return &ecs.ListServicesOutput{
+						ServiceArns: []*string{
+							aws.String("arn:aws:ecs:eu-west-1:1111111111:cluster/execCommand/test-service-1"),
+						},
+					}, nil
+				},
+				ListTasksMock: func(input *ecs.ListTasksInput) (*ecs.ListTasksOutput, error) {
+					return &ecs.ListTasksOutput{
+						TaskArns: []*string{
+							aws.String("arn:aws:ecs:eu-west-1:111111111111:task/execCommand/8a58117dac38436ba5547e9da5d3ac3d"),
+						},
+					}, nil
+				},
+				DescribeTasksMock: func(input *ecs.DescribeTasksInput) (*ecs.DescribeTasksOutput, error) {
+					return &ecs.DescribeTasksOutput{
+						Tasks: []*ecs.Task{
+							{
+								TaskArn: aws.String("arn:aws:ecs:eu-west-1:111111111111:task/execCommand/8a58117dac38436ba5547e9da5d3ac3d"),
+								Containers: []*ecs.Container{
+									{
+										Name:      aws.String("nginx"),
+										RuntimeId: aws.String("544e08d919364be9926186b086c29868-2531612879"),
+									},
+								},
+								PlatformFamily: aws.String("Linux"),
+							},
+						},
+					}, nil
+				},
+				ExecuteCommandMock: func(input *ecs.ExecuteCommandInput) (*ecs.ExecuteCommandOutput, error) {
+					return &ecs.ExecuteCommandOutput{
+						Session: &ecs.Session{
+							SessionId:  aws.String("ecs-execute-command-0e86561fddf625dc1"),
+							StreamUrl:  aws.String("wss://ssmmessages.eu-west-1.amazonaws.com/v1/data-channel/ecs-execute-command-blah"),
+							TokenValue: aws.String("abc123"),
+						},
+					}, nil
+				},
+			},
+			expected: nil,
+		},
+		{
+			name: "TestExecuteInputWithNoServices",
+			client: &MockECSAPI{
+				ListClustersMock: func(input *ecs.ListClustersInput) (*ecs.ListClustersOutput, error) {
+					return &ecs.ListClustersOutput{
+						ClusterArns: []*string{
+							aws.String("arn:aws:ecs:eu-west-1:1111111111:cluster/execCommand"),
+						},
+					}, nil
+				},
+				ListServicesMock: func(input *ecs.ListServicesInput) (*ecs.ListServicesOutput, error) {
+					return &ecs.ListServicesOutput{
+						ServiceArns: []*string{},
+					}, nil
+				},
+				ListTasksMock: func(input *ecs.ListTasksInput) (*ecs.ListTasksOutput, error) {
+					return &ecs.ListTasksOutput{
+						TaskArns: []*string{
+							aws.String("arn:aws:ecs:eu-west-1:111111111111:task/execCommand/8a58117dac38436ba5547e9da5d3ac3d"),
+						},
+					}, nil
+				},
+				DescribeTasksMock: func(input *ecs.DescribeTasksInput) (*ecs.DescribeTasksOutput, error) {
+					return &ecs.DescribeTasksOutput{
+						Tasks: []*ecs.Task{
+							{
+								TaskArn: aws.String("arn:aws:ecs:eu-west-1:111111111111:task/execCommand/8a58117dac38436ba5547e9da5d3ac3d"),
+								Containers: []*ecs.Container{
+									{
+										Name:      aws.String("nginx"),
+										RuntimeId: aws.String("544e08d919364be9926186b086c29868-2531612879"),
+									},
+								},
+								PlatformFamily: aws.String("Linux"),
+							},
+						},
+					}, nil
+				},
+				ExecuteCommandMock: func(input *ecs.ExecuteCommandInput) (*ecs.ExecuteCommandOutput, error) {
+					return &ecs.ExecuteCommandOutput{
+						Session: &ecs.Session{
+							SessionId:  aws.String("ecs-execute-command-0e86561fddf625dc1"),
+							StreamUrl:  aws.String("wss://ssmmessages.eu-west-1.amazonaws.com/v1/data-channel/ecs-execute-command-blah"),
+							TokenValue: aws.String("abc123"),
+						},
+					}, nil
+				},
+			},
+			expected: nil,
+		},
+	}
+
+	for _, c := range cases {
+		cmd := CreateMockExecCommand(c.client)
+		err := cmd.Start()
+		if ok := assert.Equal(t, c.expected, err); ok != true {
+			fmt.Printf("%s FAILED\n", c.name)
+		}
+		fmt.Printf("%s PASSED\n", c.name)
 	}
 }

@@ -76,7 +76,6 @@ func (e *ExecCommand) Start() error {
 				if err != nil {
 					e.exit <- err
 				}
-				e.getTask()
 			}
 		}
 	}()
@@ -84,9 +83,8 @@ func (e *ExecCommand) Start() error {
 	// Initiate the workflow
 	e.input <- "getCluster"
 
-	// Block until we receive a message on the err channel
-	err = <-e.err
-	fmt.Println(err)
+	// Block until we receive a message on the exit channel
+	err = <-e.exit
 	if err != nil {
 		return err
 	}
