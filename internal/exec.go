@@ -260,15 +260,16 @@ func (e *ExecCommand) getContainer() {
 // executeInput takes all of our previous values and builds a session for us
 // and then calls runCommand to execute the session input via session-manager-plugin
 func (e *ExecCommand) executeInput() {
-	// Check if command has been passed to the tool, otherwise default to /bin/sh
-	var command string
+	// Check if command has been passed to the tool, defaults to /bin/sh
+	command := "/bin/sh"
 	if viper.GetString("cmd") != "" {
 		command = viper.GetString("cmd")
 	} else {
-		if strings.Contains(*e.task.PlatformFamily, "Windows") {
-			command = "powershell.exe"
-		} else {
-			command = "/bin/sh"
+		// Check PlatformFamily value and change default cmd if required
+		if e.task.PlatformFamily != nil {
+			if strings.Contains(*e.task.PlatformFamily, "Windows") {
+				command = "powershell.exe"
+			}
 		}
 	}
 
