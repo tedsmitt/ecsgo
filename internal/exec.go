@@ -329,7 +329,6 @@ func (e *ExecCommand) executeInput() error {
 		} else {
 			command = "/bin/sh"
 		}
-
 	}
 	execCommand, err := e.client.ExecuteCommand(&ecs.ExecuteCommandInput{
 		Cluster:     aws.String(e.cluster),
