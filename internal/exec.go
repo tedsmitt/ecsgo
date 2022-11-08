@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"os/exec"
 	"strings"
 
@@ -19,7 +18,7 @@ import (
 type ExecCommand struct {
 	input      chan string
 	err        chan error
-	done       chan bool
+	exit       chan error
 	client     ecsiface.ECSAPI
 	region     string
 	endpoint   string
@@ -37,7 +36,7 @@ func CreateExecCommand() *ExecCommand {
 	e := &ExecCommand{
 		input:    make(chan string, 1),
 		err:      make(chan error, 1),
-		done:     make(chan bool),
+		exit:     make(chan error, 1),
 		client:   client,
 		region:   client.SigningRegion,
 		endpoint: client.Endpoint,
@@ -47,12 +46,12 @@ func CreateExecCommand() *ExecCommand {
 }
 
 // Start begins a goroutine that listens on the input channel for instructions
-func (e *ExecCommand) Start() {
+func (e *ExecCommand) Start() error {
 	// Before we do anything make sure that the session-manager-plugin is available in $PATH, exit if it isn't
 	_, err := exec.LookPath("session-manager-plugin")
 	if err != nil {
 		fmt.Println(red("session-manager-plugin isn't installed or wasn't found in $PATH - https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html"))
-		os.Exit(1)
+		return err
 	}
 
 	go func() {
@@ -74,16 +73,21 @@ func (e *ExecCommand) Start() {
 					e.getCluster()
 				}
 			case err := <-e.err:
-				fmt.Printf(red("\n%s\n"), err)
-				os.Exit(1)
+				e.exit <- err
 			}
 		}
 	}()
 
 	// Initiate the workflow
 	e.input <- "getCluster"
-	// Block until we receive a message on the done channel
-	<-e.done
+
+	// Block until we receive a message on the exit channel
+	err = <-e.exit
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Lists available clusters and prompts the user to select one
@@ -275,6 +279,7 @@ func (e *ExecCommand) executeInput() {
 		Command:     aws.String(command),
 		Container:   e.container.Name,
 	})
+
 	if err != nil {
 		e.err <- err
 		return
@@ -299,15 +304,11 @@ func (e *ExecCommand) executeInput() {
 
 	// Print Cluster/Service/Task information to the console
 	fmt.Printf("\nCluster: %v | Service: %v | Task: %s", cyan(e.cluster), magenta(e.service), green(strings.Split(*e.task.TaskArn, "/")[2]))
-	fmt.Printf("\nConnecting to container %v", yellow(*e.container.Name))
+	fmt.Printf("\nConnecting to container %v\n", yellow(*e.container.Name))
 
 	// Execute the session-manager-plugin with our task details
-	if err = runCommand("session-manager-plugin", string(execSess), e.region, "StartSession", "", string(targetJson), e.endpoint); err != nil {
-		e.done <- true
-		e.err <- err
-		return
-	}
+	err = runCommand("session-manager-plugin", string(execSess), e.region, "StartSession", "", string(targetJson), e.endpoint)
+	e.err <- err
 
-	e.done <- true
 	return
 }

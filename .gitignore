@@ -15,5 +15,13 @@
 # vendor/
 
 ecsgo
+
 # For goreleaser otherwise build fails with git dirty error
 dist
+
+# Exclude .vscode folder
+.vscode/
+
+# Exclude terraform state files from test folder
+.terraform*
+**.tfstate*
