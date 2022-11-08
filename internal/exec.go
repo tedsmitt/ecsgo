@@ -54,7 +54,7 @@ func (e *ExecCommand) Start() error {
 		return err
 	}
 
-	go func() error {
+	go func() {
 		for {
 			select {
 			case input := <-e.input:
