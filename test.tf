@@ -317,9 +317,10 @@ resource "aws_ecs_task_definition" "fargate" {
 }
 
 resource "aws_ecs_task_definition" "ec2_launch" {
-  family             = "test-ecsgo-ec2-launch"
-  task_role_arn      = aws_iam_role.ecs_task.arn
-  execution_role_arn = aws_iam_role.ecs_task.arn
+  family                   = "test-ecsgo-ec2-launch"
+  task_role_arn            = aws_iam_role.ecs_task.arn
+  execution_role_arn       = aws_iam_role.ecs_task.arn
+  requires_compatibilities = ["EC2"]
 
   container_definitions = jsonencode([
     {
@@ -390,6 +391,7 @@ resource "aws_ecs_service" "fargate" {
   task_definition        = aws_ecs_task_definition.fargate.arn
   desired_count          = 1
   enable_execute_command = true
+  launch_type            = "FARGATE"
 
   network_configuration {
     subnets          = data.aws_subnets.test.ids
@@ -408,4 +410,5 @@ resource "aws_ecs_service" "ec2_launch" {
   task_definition        = aws_ecs_task_definition.ec2_launch.arn
   desired_count          = 1
   enable_execute_command = true
+  launch_type            = "EC2"
 }
