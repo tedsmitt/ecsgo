@@ -73,9 +73,7 @@ func (e *ExecCommand) Start() error {
 					e.getCluster()
 				}
 			case err := <-e.err:
-				if err != nil {
-					e.exit <- err
-				}
+				e.exit <- err
 			}
 		}
 	}()
