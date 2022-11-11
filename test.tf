@@ -406,6 +406,10 @@ resource "aws_ecs_task_definition" "ec2_launch" {
   execution_role_arn       = aws_iam_role.ecs_task.arn
   requires_compatibilities = ["EC2"]
 
+  runtime_platform {
+    operating_system_family = "LINUX"
+  }
+
   container_definitions = jsonencode([
     {
       name      = "nginx"
@@ -479,21 +483,24 @@ resource "aws_ecs_task_definition" "windows_ec2_launch" {
     {
       name      = "iis"
       image     = "mcr.microsoft.com/windows/servercore/iis:windowsservercore-ltsc2022"
-      cpu       = 512
-      memory    = 1024
+      cpu       = 1024
+      memory    = 2048
       essential = true
       portMappings = [
         {
           containerPort = 80
         }
       ]
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group" : aws_cloudwatch_log_group.test.id
+          "awslogs-region" : "eu-west-1"
+          "awslogs-stream-prefix" : "ecs"
+        }
+      }
     }
   ])
-
-  # runtime_platform {
-  #   operating_system_family = "WINDOWS_SERVER_2022_CORE"
-  #   cpu_architecture        = "X86_64"
-  # }
 
 }
 
