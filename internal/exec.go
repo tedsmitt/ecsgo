@@ -218,8 +218,33 @@ func (e *ExecCommand) getTask() {
 			e.input <- "getService"
 			return
 		}
-
 		e.task = selection
+
+		// Get associated task definition and determine OS family if EC2 launch-type
+		if *e.task.LaunchType == "EC2" {
+			taskDefinition, err := e.client.DescribeTaskDefinition(&ecs.DescribeTaskDefinitionInput{
+				TaskDefinition: aws.String(*e.task.TaskDefinitionArn),
+			})
+			if err != nil {
+				e.err <- err
+				return
+			}
+			if taskDefinition.TaskDefinition.RuntimePlatform != nil {
+				e.task.PlatformFamily = taskDefinition.TaskDefinition.RuntimePlatform.OperatingSystemFamily
+			} else {
+				// if the OperatingSystemFamily has not been specified in the task definition, then we refer
+				// to the container instance to determine the OS
+				ec2Client := createEc2Client()
+				containerInstanceOs, err := getContainerInstanceOs(e.client, ec2Client, e.cluster, *e.task.ContainerInstanceArn)
+				if err != nil {
+					e.err <- err
+					return
+				}
+				// Add our own PlatformFamily value for the task struct
+				e.task.PlatformFamily = containerInstanceOs
+			}
+		}
+
 		e.input <- "getContainer"
 		return
 
@@ -260,19 +285,17 @@ func (e *ExecCommand) getContainer() {
 // executeInput takes all of our previous values and builds a session for us
 // and then calls runCommand to execute the session input via session-manager-plugin
 func (e *ExecCommand) executeInput() {
-	// Check if command has been passed to the tool, defaults to /bin/sh
-	command := "/bin/sh"
+	var command string
 	if viper.GetString("cmd") != "" {
 		command = viper.GetString("cmd")
 	} else {
-		// Check PlatformFamily value and change default cmd if required
-		if e.task.PlatformFamily != nil {
-			if strings.Contains(*e.task.PlatformFamily, "Windows") {
-				command = "powershell.exe"
-			}
+		if strings.Contains(strings.ToLower(*e.task.PlatformFamily), "windows") {
+			command = "powershell.exe"
+		} else {
+			command = "/bin/sh"
 		}
-	}
 
+	}
 	execCommand, err := e.client.ExecuteCommand(&ecs.ExecuteCommandInput{
 		Cluster:     aws.String(e.cluster),
 		Interactive: aws.Bool(true),
@@ -304,7 +327,7 @@ func (e *ExecCommand) executeInput() {
 	}
 
 	// Print Cluster/Service/Task information to the console
-	fmt.Printf("\nCluster: %v | Service: %v | Task: %s", cyan(e.cluster), magenta(e.service), green(strings.Split(*e.task.TaskArn, "/")[2]))
+	fmt.Printf("\nCluster: %v | Service: %v | Task: %s | Cmd: %s", cyan(e.cluster), magenta(e.service), green(strings.Split(*e.task.TaskArn, "/")[2]), yellow(command))
 	fmt.Printf("\nConnecting to container %v\n", yellow(*e.container.Name))
 
 	// Execute the session-manager-plugin with our task details

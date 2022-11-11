@@ -39,11 +39,11 @@ You can also view some additional documentation on using ECS Exec [here](https:/
 
 ## Usage
 
-| Flag | Description                                                                                 | Default Value             |
-| ---- | --------------------------------------------------------------------------------------------| --------------------------|
-| `-p` | Specify the profile to load the credentials                                                 | `default`                 |
-| `-c` | Specify the command to be run on the container (default will change depending on OS family) | `/bin/sh`,`powershell.exe`|
-| `-r` | Specify the AWS region to run in                                                            | N/A                       |
+| Flag | Description                                                                                  | Default Value              |
+| ---- | -------------------------------------------------------------------------------------------- | -------------------------- |
+| `-p` | Specify the profile to load the credentials                                                  | `default`                  |
+| `-c` | Specify the command to be run on the container (default will change depending on OS family). | `/bin/sh`,`powershell.exe` |
+| `-r` | Specify the AWS region to run in                                                             | N/A                        |
 
 The tool also supports AWS Config/Environment Variables for configuration. If you aren't familiar with working on AWS via the CLI, you can read more about how to configure your environment [here](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html).
 

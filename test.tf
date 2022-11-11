@@ -35,6 +35,17 @@ data "aws_ami" "ecs_optimized" {
   owners = ["amazon"]
 }
 
+data "aws_ami" "windows_ecs_optimized" {
+  most_recent = true
+
+  filter {
+    name   = "name"
+    values = ["Windows_Server-2022-English-Core-ECS_Optimized-*"]
+  }
+
+  owners = ["amazon"]
+}
+
 ####################
 # IAM
 ####################
@@ -67,7 +78,8 @@ data "aws_iam_policy_document" "ecs_instance" {
   statement {
     actions = [
       "ec2:*",
-      "ecs:*"
+      "ecs:*",
+      "kms:*",
     ]
 
     resources = [
@@ -222,11 +234,83 @@ resource "aws_autoscaling_group" "ecs" {
   }
 }
 
+resource "aws_launch_template" "windows_ecs_instance" {
+  name                                 = "test-ecsgo-windows-instance-lt"
+  image_id                             = data.aws_ami.windows_ecs_optimized.image_id
+  instance_type                        = "m5.large"
+  ebs_optimized                        = true
+  instance_initiated_shutdown_behavior = "terminate"
+
+  block_device_mappings {
+    device_name = "/dev/sda1"
+    ebs {
+      volume_size = 100
+    }
+  }
+
+  tag_specifications {
+    resource_type = "instance"
+
+    tags = {
+      Name = "test-ecsgo-windows-instance"
+    }
+  }
+
+  iam_instance_profile {
+    name = aws_iam_instance_profile.ecs_instance.id
+  }
+
+  monitoring {
+    enabled = true
+  }
+
+  network_interfaces {
+    associate_public_ip_address = true
+    security_groups             = [aws_security_group.ecs_instance.id]
+  }
+
+  user_data = base64encode(<<-EOF
+  <powershell>
+  Initialize-ECSAgent -Cluster ${aws_ecs_cluster.windows_test.name} -EnableTaskIAMRole -AwsvpcBlockIMDS -EnableTaskENI -LoggingDrivers '["json-file","awslogs"]'
+  [Environment]::SetEnvironmentVariable("ECS_ENABLE_AWSLOGS_EXECUTIONROLE_OVERRIDE",$TRUE, "Machine")
+  </powershell>
+  EOF
+  )
+
+  instance_market_options {
+    market_type = "spot"
+  }
+}
+
+resource "aws_autoscaling_group" "windows_ecs" {
+  name                = "test-ecsgo-windows-instance-asg"
+  vpc_zone_identifier = data.aws_subnets.test.ids
+  max_size            = 1
+  min_size            = 0
+  desired_capacity    = 1
+
+  launch_template {
+    id      = aws_launch_template.windows_ecs_instance.id
+    version = "$Latest"
+  }
+
+  health_check_grace_period = 300
+  health_check_type         = "EC2"
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
 ####################
 # ECS
 ####################
 resource "aws_ecs_cluster" "test" {
   name = "test-ecsgo"
+}
+
+resource "aws_ecs_cluster" "windows_test" {
+  name = "test-windows-ecsgo"
 }
 
 resource "aws_ecs_cluster_capacity_providers" "test" {
@@ -385,6 +469,34 @@ resource "aws_ecs_task_definition" "ec2_launch" {
 
 }
 
+resource "aws_ecs_task_definition" "windows_ec2_launch" {
+  family                   = "test-ecsgo-windows-ec2-launch"
+  task_role_arn            = aws_iam_role.ecs_task.arn
+  execution_role_arn       = aws_iam_role.ecs_task.arn
+  requires_compatibilities = ["EC2"]
+
+  container_definitions = jsonencode([
+    {
+      name      = "iis"
+      image     = "mcr.microsoft.com/windows/servercore/iis:windowsservercore-ltsc2022"
+      cpu       = 512
+      memory    = 1024
+      essential = true
+      portMappings = [
+        {
+          containerPort = 80
+        }
+      ]
+    }
+  ])
+
+  # runtime_platform {
+  #   operating_system_family = "WINDOWS_SERVER_2022_CORE"
+  #   cpu_architecture        = "X86_64"
+  # }
+
+}
+
 resource "aws_ecs_service" "fargate" {
   name                   = "fargate-test"
   cluster                = aws_ecs_cluster.test.id
@@ -412,3 +524,13 @@ resource "aws_ecs_service" "ec2_launch" {
   enable_execute_command = true
   launch_type            = "EC2"
 }
+
+resource "aws_ecs_service" "windows-ec2_launch" {
+  name                   = "ec2-windows-launch-test"
+  cluster                = aws_ecs_cluster.windows_test.id
+  task_definition        = aws_ecs_task_definition.windows_ec2_launch.arn
+  desired_count          = 1
+  enable_execute_command = true
+  launch_type            = "EC2"
+}
+
