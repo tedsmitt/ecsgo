@@ -1,4 +1,4 @@
-package cli
+package app
 
 import (
 	"fmt"
@@ -89,9 +89,9 @@ func (m *MockEC2API) DescribeInstances(input *ec2.DescribeInstancesInput) (*ec2.
 	return nil, nil
 }
 
-// CreateMockExecCommand initialises a new ExecCommand struct and takes a MockClient as an argument - only used in tests
-func CreateMockExecCommand(c *MockECSAPI) *ExecCommand {
-	e := &ExecCommand{
+// CreateMockApp initialises a new App struct and takes a MockClient as an argument - only used in tests
+func CreateMockApp(c *MockECSAPI) *App {
+	e := &App{
 		input:    make(chan string, 1),
 		err:      make(chan error, 1),
 		exit:     make(chan error, 1),
@@ -115,13 +115,13 @@ func TestGetCluster(t *testing.T) {
 				ListClustersMock: func(input *ecs.ListClustersInput) (*ecs.ListClustersOutput, error) {
 					return &ecs.ListClustersOutput{
 						ClusterArns: []*string{
-							aws.String("arn:aws:ecs:eu-west-1:1111111111:cluster/execCommand"),
-							aws.String("arn:aws:ecs:eu-west-1:1111111111:cluster/bluegreen"),
+							aws.String("arn:aws:ecs:eu-west-1:1111111111:cluster/App"),
+							aws.String("arn:aws:ecs:eu-west-1:1111111111:cluster/blueGreen"),
 						},
 					}, nil
 				},
 			},
-			expected: "execCommand",
+			expected: "App",
 		},
 		{
 			name: "TestGetClusterWithSingleResult",
@@ -129,12 +129,12 @@ func TestGetCluster(t *testing.T) {
 				ListClustersMock: func(input *ecs.ListClustersInput) (*ecs.ListClustersOutput, error) {
 					return &ecs.ListClustersOutput{
 						ClusterArns: []*string{
-							aws.String("arn:aws:ecs:eu-west-1:1111111111:cluster/execCommand"),
+							aws.String("arn:aws:ecs:eu-west-1:1111111111:cluster/App"),
 						},
 					}, nil
 				},
 			},
-			expected: "execCommand",
+			expected: "App",
 		},
 		{
 			name: "TestGetClusterWithoutResults",
@@ -150,7 +150,7 @@ func TestGetCluster(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		input := CreateMockExecCommand(c.client)
+		input := CreateMockApp(c.client)
 		input.getCluster()
 		if ok := assert.Equal(t, c.expected, input.cluster); ok != true {
 			fmt.Printf("%s FAILED\n", c.name)
@@ -171,8 +171,8 @@ func TestGetService(t *testing.T) {
 				ListServicesMock: func(input *ecs.ListServicesInput) (*ecs.ListServicesOutput, error) {
 					return &ecs.ListServicesOutput{
 						ServiceArns: []*string{
-							aws.String("arn:aws:ecs:eu-west-1:1111111111:cluster/execCommand/test-service-1"),
-							aws.String("arn:aws:ecs:eu-west-1:1111111111:cluster/bluegreen/test-service-2"),
+							aws.String("arn:aws:ecs:eu-west-1:1111111111:cluster/App/test-service-1"),
+							aws.String("arn:aws:ecs:eu-west-1:1111111111:cluster/blueGreen/test-service-2"),
 						},
 					}, nil
 				},
@@ -193,8 +193,8 @@ func TestGetService(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		input := CreateMockExecCommand(c.client)
-		input.cluster = "execCommand"
+		input := CreateMockApp(c.client)
+		input.cluster = "App"
 		input.getService()
 		if ok := assert.Equal(t, c.expected, input.service); ok != true {
 			fmt.Printf("%s FAILED\n", c.name)
@@ -215,7 +215,7 @@ func TestGetTask(t *testing.T) {
 				ListTasksMock: func(input *ecs.ListTasksInput) (*ecs.ListTasksOutput, error) {
 					return &ecs.ListTasksOutput{
 						TaskArns: []*string{
-							aws.String("arn:aws:ecs:eu-west-1:111111111111:task/execCommand/8a58117dac38436ba5547e9da5d3ac3d"),
+							aws.String("arn:aws:ecs:eu-west-1:111111111111:task/App/8a58117dac38436ba5547e9da5d3ac3d"),
 						},
 					}, nil
 				},
@@ -223,7 +223,7 @@ func TestGetTask(t *testing.T) {
 					return &ecs.DescribeTasksOutput{
 						Tasks: []*ecs.Task{
 							{
-								TaskArn:    aws.String("arn:aws:ecs:eu-west-1:111111111111:task/execCommand/8a58117dac38436ba5547e9da5d3ac3d"),
+								TaskArn:    aws.String("arn:aws:ecs:eu-west-1:111111111111:task/App/8a58117dac38436ba5547e9da5d3ac3d"),
 								LaunchType: aws.String("FARGATE"),
 							},
 						},
@@ -231,7 +231,7 @@ func TestGetTask(t *testing.T) {
 				},
 			},
 			expected: &ecs.Task{
-				TaskArn:    aws.String("arn:aws:ecs:eu-west-1:111111111111:task/execCommand/8a58117dac38436ba5547e9da5d3ac3d"),
+				TaskArn:    aws.String("arn:aws:ecs:eu-west-1:111111111111:task/App/8a58117dac38436ba5547e9da5d3ac3d"),
 				LaunchType: aws.String("FARGATE"),
 			},
 		},
@@ -249,8 +249,8 @@ func TestGetTask(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		input := CreateMockExecCommand(c.client)
-		input.cluster = "execCommand"
+		input := CreateMockApp(c.client)
+		input.cluster = "App"
 		input.service = "test-service-1"
 		input.getTask()
 		if ok := assert.Equal(t, c.expected, input.task); ok != true {
@@ -301,7 +301,7 @@ func TestGetContainer(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		input := CreateMockExecCommand(c.client)
+		input := CreateMockApp(c.client)
 		input.task = c.task
 		input.getContainer()
 		if ok := assert.Equal(t, c.expected, input.container); ok != true {
@@ -323,7 +323,7 @@ func TestExecuteInput(t *testing.T) {
 			name:    "TestExecuteInput",
 			cluster: "test",
 			task: &ecs.Task{
-				TaskArn: aws.String("arn:aws:ecs:eu-west-1:111111111111:task/execCommand/8a58117dac38436ba5547e9da5d3ac3d"),
+				TaskArn: aws.String("arn:aws:ecs:eu-west-1:111111111111:task/App/8a58117dac38436ba5547e9da5d3ac3d"),
 				Containers: []*ecs.Container{
 					{
 						Name:      aws.String("nginx"),
@@ -348,7 +348,7 @@ func TestExecuteInput(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		app := &ExecCommand{
+		app := &App{
 			input:    make(chan string, 1),
 			err:      make(chan error, 1),
 			exit:     make(chan error, 1),
@@ -359,7 +359,7 @@ func TestExecuteInput(t *testing.T) {
 			task:     c.task,
 		}
 		app.container = c.task.Containers[0]
-		err := app.executeInput()
+		err := app.executeCommand()
 		if ok := assert.Equal(t, c.expected, err); ok != true {
 			fmt.Printf("%s FAILED\n", c.name)
 		}
@@ -379,7 +379,7 @@ func TestGetPlatformFamily(t *testing.T) {
 			name:    "TestGetPlatformFamilyWithFargateTask",
 			cluster: "test",
 			task: &ecs.Task{
-				TaskArn:        aws.String("arn:aws:ecs:eu-west-1:111111111111:task/execCommand/8a58117dac38436ba5547e9da5d3ac3d"),
+				TaskArn:        aws.String("arn:aws:ecs:eu-west-1:111111111111:task/App/8a58117dac38436ba5547e9da5d3ac3d"),
 				LaunchType:     aws.String("FARGATE"),
 				PlatformFamily: aws.String("Linux"),
 			},
@@ -400,7 +400,7 @@ func TestGetPlatformFamily(t *testing.T) {
 			name:    "TestGetPlatformFamilyWithEC2LaunchTaskNoRuntimePlatformFail",
 			cluster: "test",
 			task: &ecs.Task{
-				TaskArn:              aws.String("arn:aws:ecs:eu-west-1:111111111111:task/execCommand/8a58117dac38436ba5547e9da5d3ac3d"),
+				TaskArn:              aws.String("arn:aws:ecs:eu-west-1:111111111111:task/App/8a58117dac38436ba5547e9da5d3ac3d"),
 				LaunchType:           aws.String("EC2"),
 				ContainerInstanceArn: aws.String("abcdefghij1234567890"),
 			},
