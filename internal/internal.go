@@ -11,9 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
 	"github.com/aws/aws-sdk-go/service/ecs"
-	"github.com/aws/aws-sdk-go/service/ecs/ecsiface"
 	"github.com/fatih/color"
 	"github.com/spf13/viper"
 )
@@ -231,24 +229,4 @@ func runCommand(process string, args ...string) error {
 // getVersion returns version information
 func getVersion() string {
 	return fmt.Sprintf("Version: %s, Commit: %s, Built date: %s, Built by: %s", version, commit, date, builtBy)
-}
-
-func getContainerInstanceOs(ecsClient ecsiface.ECSAPI, ec2Client ec2iface.EC2API, cluster string, containerInstanceArn string) (*string, error) {
-	res, err := ecsClient.DescribeContainerInstances(&ecs.DescribeContainerInstancesInput{
-		Cluster: aws.String(cluster),
-		ContainerInstances: []*string{
-			aws.String(containerInstanceArn),
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-	instanceId := res.ContainerInstances[0].Ec2InstanceId
-	instance, err := ec2Client.DescribeInstances(&ec2.DescribeInstancesInput{
-		InstanceIds: []*string{
-			instanceId,
-		},
-	})
-	operatingSystem := instance.Reservations[0].Instances[0].PlatformDetails
-	return operatingSystem, nil
 }
