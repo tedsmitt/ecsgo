@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
 	"github.com/aws/aws-sdk-go/service/ecs"
 	"github.com/aws/aws-sdk-go/service/ecs/ecsiface"
 	"github.com/aws/aws-sdk-go/service/ssm"
@@ -43,6 +45,43 @@ func CreateExecCommand() *ExecCommand {
 	}
 
 	return e
+}
+
+// getPlatformFamily checks an ECS tasks properties to see if the OS can be derived from its properties, otherwise
+// it will check the container instance itself to determine the OS.
+func getPlatformFamily(client ecsiface.ECSAPI, clusterName string, task *ecs.Task) (string, error) {
+	taskDefinition, err := client.DescribeTaskDefinition(&ecs.DescribeTaskDefinitionInput{
+		TaskDefinition: task.TaskDefinitionArn,
+	})
+	if err != nil {
+		return "", err
+	}
+	if taskDefinition.TaskDefinition.RuntimePlatform != nil {
+		return *taskDefinition.TaskDefinition.RuntimePlatform.OperatingSystemFamily, nil
+	}
+	return "", nil
+}
+
+// getContainerInstanceOS describes the specified container instance and checks against the backing EC2 instance
+// to determine the platform.
+func getContainerInstanceOS(ecsClient ecsiface.ECSAPI, ec2Client ec2iface.EC2API, cluster string, containerInstanceArn string) (string, error) {
+	res, err := ecsClient.DescribeContainerInstances(&ecs.DescribeContainerInstancesInput{
+		Cluster: aws.String(cluster),
+		ContainerInstances: []*string{
+			aws.String(containerInstanceArn),
+		},
+	})
+	if err != nil {
+		return "", err
+	}
+	instanceId := res.ContainerInstances[0].Ec2InstanceId
+	instance, err := ec2Client.DescribeInstances(&ec2.DescribeInstancesInput{
+		InstanceIds: []*string{
+			instanceId,
+		},
+	})
+	operatingSystem := *instance.Reservations[0].Instances[0].PlatformDetails
+	return operatingSystem, nil
 }
 
 // Start begins a goroutine that listens on the input channel for instructions
@@ -123,7 +162,7 @@ func (e *ExecCommand) getCluster() {
 	}
 }
 
-// Lists available service and prompts the user to select one
+// Lists available services and prompts the user to select one
 func (e *ExecCommand) getService() {
 	list, err := e.client.ListServices(&ecs.ListServicesInput{
 		Cluster: aws.String(e.cluster),
@@ -218,8 +257,29 @@ func (e *ExecCommand) getTask() {
 			e.input <- "getService"
 			return
 		}
-
 		e.task = selection
+
+		// Get associated task definition and determine OS family if EC2 launch-type
+		if *e.task.LaunchType == "EC2" {
+			family, err := getPlatformFamily(e.client, e.cluster, e.task)
+			if err != nil {
+				e.err <- err
+				return
+			}
+			// if the OperatingSystemFamily has not been specified in the task definition
+			// then we refer to the container instance to determine the OS
+			if family == "" {
+				ec2Client := createEc2Client()
+				family, err = getContainerInstanceOS(e.client, ec2Client, e.cluster, *e.task.ContainerInstanceArn)
+				if err != nil {
+					e.err <- err
+					return
+				}
+			}
+			// Add our own PlatformFamily value for the task struct
+			e.task.PlatformFamily = &family
+		}
+
 		e.input <- "getContainer"
 		return
 
@@ -259,19 +319,18 @@ func (e *ExecCommand) getContainer() {
 
 // executeInput takes all of our previous values and builds a session for us
 // and then calls runCommand to execute the session input via session-manager-plugin
-func (e *ExecCommand) executeInput() {
-	// Check if command has been passed to the tool, otherwise default to /bin/sh
+func (e *ExecCommand) executeInput() error {
 	var command string
 	if viper.GetString("cmd") != "" {
 		command = viper.GetString("cmd")
 	} else {
-		if strings.Contains(*e.task.PlatformFamily, "Windows") {
+		if strings.Contains(strings.ToLower(*e.task.PlatformFamily), "windows") {
 			command = "powershell.exe"
 		} else {
 			command = "/bin/sh"
 		}
-	}
 
+	}
 	execCommand, err := e.client.ExecuteCommand(&ecs.ExecuteCommandInput{
 		Cluster:     aws.String(e.cluster),
 		Interactive: aws.Bool(true),
@@ -282,13 +341,13 @@ func (e *ExecCommand) executeInput() {
 
 	if err != nil {
 		e.err <- err
-		return
+		return err
 	}
 
 	execSess, err := json.MarshalIndent(execCommand.Session, "", "    ")
 	if err != nil {
 		e.err <- err
-		return
+		return err
 	}
 
 	taskArnSplit := strings.Split(*e.task.TaskArn, "/")
@@ -299,16 +358,16 @@ func (e *ExecCommand) executeInput() {
 	targetJson, err := json.MarshalIndent(target, "", "    ")
 	if err != nil {
 		e.err <- err
-		return
+		return err
 	}
 
 	// Print Cluster/Service/Task information to the console
-	fmt.Printf("\nCluster: %v | Service: %v | Task: %s", cyan(e.cluster), magenta(e.service), green(strings.Split(*e.task.TaskArn, "/")[2]))
+	fmt.Printf("\nCluster: %v | Service: %v | Task: %s | Cmd: %s", cyan(e.cluster), magenta(e.service), green(strings.Split(*e.task.TaskArn, "/")[2]), yellow(command))
 	fmt.Printf("\nConnecting to container %v\n", yellow(*e.container.Name))
 
 	// Execute the session-manager-plugin with our task details
 	err = runCommand("session-manager-plugin", string(execSess), e.region, "StartSession", "", string(targetJson), e.endpoint)
 	e.err <- err
 
-	return
+	return err
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ecs"
 	"github.com/fatih/color"
 	"github.com/spf13/viper"
@@ -57,6 +58,18 @@ func createEcsClient() *ecs.ECS {
 		SharedConfigState: session.SharedConfigEnable,
 	}))
 	client := ecs.New(sess)
+
+	return client
+}
+
+func createEc2Client() *ec2.EC2 {
+	region := viper.GetString("region")
+	sess := session.Must(session.NewSessionWithOptions(session.Options{
+		Config:            aws.Config{Region: aws.String(region)},
+		Profile:           viper.GetString("profile"),
+		SharedConfigState: session.SharedConfigEnable,
+	}))
+	client := ec2.New(sess)
 
 	return client
 }
