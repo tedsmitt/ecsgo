@@ -71,7 +71,7 @@ data "aws_iam_policy_document" "ecs_instance" {
     ]
 
     resources = [
-      "${aws_cloudwatch_log_group.test.arn}",
+      "*",
     ]
   }
 
@@ -476,7 +476,6 @@ resource "aws_ecs_task_definition" "ec2_launch" {
 resource "aws_ecs_task_definition" "windows_ec2_launch" {
   family                   = "test-ecsgo-windows-ec2-launch"
   task_role_arn            = aws_iam_role.ecs_task.arn
-  execution_role_arn       = aws_iam_role.ecs_task.arn
   requires_compatibilities = ["EC2"]
 
   container_definitions = jsonencode([
