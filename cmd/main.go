@@ -67,8 +67,12 @@ func init() {
 	rootCmd.PersistentFlags().StringP("cmd", "c", "", "Command to run on the container")
 	rootCmd.PersistentFlags().StringP("profile", "p", "", "AWS Profile")
 	rootCmd.PersistentFlags().StringP("region", "r", "", "AWS Region")
+	rootCmd.PersistentFlags().BoolP("forward", "f", false, "Port Forward")
+	rootCmd.PersistentFlags().StringP("local-port", "l", "42069", "Local port for use with port forwarding")
 
 	viper.BindPFlag("cmd", rootCmd.PersistentFlags().Lookup("cmd"))
 	viper.BindPFlag("profile", rootCmd.PersistentFlags().Lookup("profile"))
 	viper.BindPFlag("region", rootCmd.PersistentFlags().Lookup("region"))
+	viper.BindPFlag("forward", rootCmd.PersistentFlags().Lookup("forward"))
+	viper.BindPFlag("local-port", rootCmd.PersistentFlags().Lookup("local-port"))
 }

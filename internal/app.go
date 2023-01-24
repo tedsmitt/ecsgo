@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ecs"
 	"github.com/aws/aws-sdk-go/service/ecs/ecsiface"
+	"github.com/spf13/viper"
 )
 
 // App is a struct that contains information about our command state
@@ -65,7 +66,11 @@ func (e *App) Start() error {
 				case "getContainer":
 					e.getContainer()
 				case "execute":
-					e.executeCommand()
+					if viper.GetBool("forward") {
+						e.executeForward()
+					} else {
+						e.executeCommand()
+					}
 				default:
 					e.getCluster()
 				}
