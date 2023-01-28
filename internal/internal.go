@@ -25,7 +25,9 @@ var (
 	Green   = color.New(color.FgGreen).SprintFunc()
 	Yellow  = color.New(color.FgYellow).SprintFunc()
 
-	backOpt = "⏎ Back" // backOpt is used to allow the user to navigate backwards in the selection prompt
+	pageSize      = 15
+	backOpt       = "⏎ Back" // backOpt is used to allow the user to navigate backwards in the selection prompt
+	awsMaxResults = aws.Int64(int64(100))
 )
 
 func createOpts(opts []string) []string {

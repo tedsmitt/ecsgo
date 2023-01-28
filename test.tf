@@ -309,6 +309,11 @@ resource "aws_ecs_cluster" "test" {
   name = "test-ecsgo"
 }
 
+resource "aws_ecs_cluster" "test_pagination" {
+  for_each = toset([for i in range(1, 10) : tostring(i)])
+  name     = "test-ecsgo-${each.key}"
+}
+
 resource "aws_ecs_cluster" "windows_test" {
   name = "test-windows-ecsgo"
 }
@@ -526,7 +531,17 @@ resource "aws_ecs_service" "ec2_launch" {
   name                   = "ec2-launch-test"
   cluster                = aws_ecs_cluster.test.id
   task_definition        = aws_ecs_task_definition.ec2_launch.arn
-  desired_count          = 1
+  desired_count          = 3
+  enable_execute_command = true
+  launch_type            = "EC2"
+}
+
+resource "aws_ecs_service" "ec2_launch_pagniation" {
+  for_each               = toset([for i in range(1, 10) : tostring(i)])
+  name                   = "ec2-launch-test-${each.value}"
+  cluster                = aws_ecs_cluster.test.id
+  task_definition        = aws_ecs_task_definition.ec2_launch.arn
+  desired_count          = 0
   enable_execute_command = true
   launch_type            = "EC2"
 }

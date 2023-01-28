@@ -104,6 +104,7 @@ func CreateMockApp(c *MockECSAPI) *App {
 }
 
 func TestGetCluster(t *testing.T) {
+	paginationCall := 0
 	cases := []struct {
 		name     string
 		client   *MockECSAPI
@@ -116,12 +117,35 @@ func TestGetCluster(t *testing.T) {
 					return &ecs.ListClustersOutput{
 						ClusterArns: []*string{
 							aws.String("arn:aws:ecs:eu-west-1:1111111111:cluster/App"),
-							aws.String("arn:aws:ecs:eu-west-1:1111111111:cluster/blueGreen"),
+							aws.String("arn:aws:ecs:eu-west-1:1111111111:cluster/blueGreen-1"),
 						},
 					}, nil
 				},
 			},
 			expected: "App",
+		},
+		{
+			name: "TestGetClusterWithResultsPaginated",
+			client: &MockECSAPI{
+				ListClustersMock: func(input *ecs.ListClustersInput) (*ecs.ListClustersOutput, error) {
+					var clusters []*string
+					for i := paginationCall; i < (paginationCall * 100); i++ {
+						clusters = append(clusters, aws.String(fmt.Sprintf("arn:aws:ecs:eu-west-1:1111111111:cluster/test-cluster-%d", i)))
+					}
+					paginationCall = paginationCall + 1
+					if paginationCall > 2 {
+						return &ecs.ListClustersOutput{
+							ClusterArns: clusters,
+							NextToken:   nil,
+						}, nil
+					}
+					return &ecs.ListClustersOutput{
+						ClusterArns: clusters,
+						NextToken:   aws.String("test-token"),
+					}, nil
+				},
+			},
+			expected: "test-cluster-101",
 		},
 		{
 			name: "TestGetClusterWithSingleResult",
@@ -160,6 +184,7 @@ func TestGetCluster(t *testing.T) {
 }
 
 func TestGetService(t *testing.T) {
+	paginationCall := 1
 	cases := []struct {
 		name     string
 		client   *MockECSAPI
@@ -178,6 +203,29 @@ func TestGetService(t *testing.T) {
 				},
 			},
 			expected: "test-service-1",
+		},
+		{
+			name: "TestGetServiceWithResultsPaginated",
+			client: &MockECSAPI{
+				ListServicesMock: func(input *ecs.ListServicesInput) (*ecs.ListServicesOutput, error) {
+					var services []*string
+					for i := paginationCall; i < (paginationCall * 100); i++ {
+						services = append(services, aws.String(fmt.Sprintf("arn:aws:ecs:eu-west-1:1111111111:cluster/App/test-service-%d", i)))
+					}
+					paginationCall = paginationCall + 1
+					if paginationCall > 2 {
+						return &ecs.ListServicesOutput{
+							ServiceArns: services,
+							NextToken:   nil,
+						}, nil
+					}
+					return &ecs.ListServicesOutput{
+						ServiceArns: services,
+						NextToken:   aws.String("test-token"),
+					}, nil
+				},
+			},
+			expected: "test-service-101",
 		},
 		{
 			name: "TestGetServiceWithoutResults",
@@ -204,6 +252,7 @@ func TestGetService(t *testing.T) {
 }
 
 func TestGetTask(t *testing.T) {
+	paginationCall := 1
 	cases := []struct {
 		name     string
 		client   *MockECSAPI
@@ -220,18 +269,55 @@ func TestGetTask(t *testing.T) {
 					}, nil
 				},
 				DescribeTasksMock: func(input *ecs.DescribeTasksInput) (*ecs.DescribeTasksOutput, error) {
+					var tasks []*ecs.Task
+					for _, taskArn := range input.Tasks {
+						tasks = append(tasks, &ecs.Task{TaskArn: taskArn, LaunchType: aws.String("FARGATE")})
+					}
 					return &ecs.DescribeTasksOutput{
-						Tasks: []*ecs.Task{
-							{
-								TaskArn:    aws.String("arn:aws:ecs:eu-west-1:111111111111:task/App/8a58117dac38436ba5547e9da5d3ac3d"),
-								LaunchType: aws.String("FARGATE"),
-							},
-						},
+						Tasks: tasks,
 					}, nil
 				},
 			},
 			expected: &ecs.Task{
 				TaskArn:    aws.String("arn:aws:ecs:eu-west-1:111111111111:task/App/8a58117dac38436ba5547e9da5d3ac3d"),
+				LaunchType: aws.String("FARGATE"),
+			},
+		},
+		{
+			name: "TestGetTaskWithResultsPaginated",
+			client: &MockECSAPI{
+				ListTasksMock: func(input *ecs.ListTasksInput) (*ecs.ListTasksOutput, error) {
+					var taskArns []*string
+					var tasks []*ecs.Task
+					for i := paginationCall; i < (paginationCall * 100); i++ {
+						taskArn := aws.String(fmt.Sprintf("arn:aws:ecs:eu-west-1:111111111111:task/App/%d", i))
+						taskArns = append(taskArns, taskArn)
+						tasks = append(tasks, &ecs.Task{TaskArn: taskArn, LaunchType: aws.String("FARGATE")})
+					}
+					paginationCall = paginationCall + 1
+					if paginationCall > 2 {
+						return &ecs.ListTasksOutput{
+							TaskArns:  taskArns,
+							NextToken: nil,
+						}, nil
+					}
+					return &ecs.ListTasksOutput{
+						TaskArns:  taskArns,
+						NextToken: aws.String("test-token"),
+					}, nil
+				},
+				DescribeTasksMock: func(input *ecs.DescribeTasksInput) (*ecs.DescribeTasksOutput, error) {
+					var tasks []*ecs.Task
+					for _, taskArn := range input.Tasks {
+						tasks = append(tasks, &ecs.Task{TaskArn: taskArn, LaunchType: aws.String("FARGATE")})
+					}
+					return &ecs.DescribeTasksOutput{
+						Tasks: tasks,
+					}, nil
+				},
+			},
+			expected: &ecs.Task{
+				TaskArn:    aws.String("arn:aws:ecs:eu-west-1:111111111111:task/App/199"),
 				LaunchType: aws.String("FARGATE"),
 			},
 		},
