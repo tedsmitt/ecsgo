@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"sort"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -94,15 +95,46 @@ func (e *App) Start() error {
 
 // Lists available clusters and prompts the user to select one
 func (e *App) getCluster() {
-	list, err := e.client.ListClusters(&ecs.ListClustersInput{})
+	var clusters []*string
+	var nextToken *string
+
+	list, err := e.client.ListClusters(&ecs.ListClustersInput{
+		MaxResults: awsMaxResults,
+	})
 	if err != nil {
 		e.err <- err
 		return
 	}
+	clusters = append(clusters, list.ClusterArns...)
+	nextToken = list.NextToken
 
-	if len(list.ClusterArns) > 0 {
+	if nextToken != nil {
+		for {
+			list, err := e.client.ListClusters(&ecs.ListClustersInput{
+				MaxResults: awsMaxResults,
+				NextToken:  nextToken,
+			})
+			if err != nil {
+				e.err <- err
+				return
+			}
+			clusters = append(clusters, list.ClusterArns...)
+			if list.NextToken == nil {
+				break
+			} else {
+				nextToken = list.NextToken
+			}
+		}
+	}
+
+	// Sort the list of clusters alphabetically
+	sort.Slice(clusters, func(i, j int) bool {
+		return *clusters[i] < *clusters[j]
+	})
+
+	if len(clusters) > 0 {
 		var clusterNames []string
-		for _, c := range list.ClusterArns {
+		for _, c := range clusters {
 			arnSplit := strings.Split(*c, "/")
 			name := arnSplit[len(arnSplit)-1]
 			clusterNames = append(clusterNames, name)
@@ -127,18 +159,49 @@ func (e *App) getCluster() {
 
 // Lists available services and prompts the user to select one
 func (e *App) getService() {
+	var services []*string
+	var nextToken *string
+
 	list, err := e.client.ListServices(&ecs.ListServicesInput{
-		Cluster: aws.String(e.cluster),
+		Cluster:    aws.String(e.cluster),
+		MaxResults: awsMaxResults,
 	})
 	if err != nil {
 		e.err <- err
 		return
 	}
+	services = append(services, list.ServiceArns...)
+	nextToken = list.NextToken
 
-	if len(list.ServiceArns) > 0 {
+	if nextToken != nil {
+		for {
+			list, err := e.client.ListServices(&ecs.ListServicesInput{
+				Cluster:    aws.String(e.cluster),
+				MaxResults: awsMaxResults,
+				NextToken:  nextToken,
+			})
+			if err != nil {
+				e.err <- err
+				return
+			}
+			services = append(services, list.ServiceArns...)
+			if list.NextToken == nil {
+				break
+			} else {
+				nextToken = list.NextToken
+			}
+		}
+	}
+
+	// Sort the list of services alphabetically
+	sort.Slice(services, func(i, j int) bool {
+		return *services[i] < *services[j]
+	})
+
+	if len(services) > 0 {
 		var serviceNames []string
 
-		for _, c := range list.ServiceArns {
+		for _, c := range services {
 			arnSplit := strings.Split(*c, "/")
 			name := arnSplit[len(arnSplit)-1]
 			serviceNames = append(serviceNames, name)
@@ -161,7 +224,7 @@ func (e *App) getService() {
 
 	} else {
 		// Continue without setting a service if no services are found in the cluster
-		fmt.Printf(Yellow("\n%s"), "No services found in the cluster, returning all running tasks...")
+		fmt.Printf(Yellow("\n%s"), "No services found in the cluster, returning all running tasks...\n")
 		e.input <- "getTask"
 		return
 	}
@@ -169,18 +232,23 @@ func (e *App) getService() {
 
 // Lists tasks in a cluster and prompts the user to select one
 func (e *App) getTask() {
+	var taskArns []*string
+	var nextToken *string
+
 	var input *ecs.ListTasksInput
 
 	// If no service has been set, or if ALL (*) services have been selected
 	// then we don't need to specify a ServiceName
 	if e.service == "" || e.service == "*" {
 		input = &ecs.ListTasksInput{
-			Cluster: aws.String(e.cluster),
+			Cluster:    aws.String(e.cluster),
+			MaxResults: awsMaxResults,
 		}
 	} else {
 		input = &ecs.ListTasksInput{
 			Cluster:     aws.String(e.cluster),
 			ServiceName: aws.String(e.service),
+			MaxResults:  awsMaxResults,
 		}
 	}
 
@@ -190,11 +258,34 @@ func (e *App) getTask() {
 		return
 	}
 
+	taskArns = append(taskArns, list.TaskArns...)
+	nextToken = list.NextToken
+
+	if nextToken != nil {
+		for {
+			list, err := e.client.ListTasks(&ecs.ListTasksInput{
+				Cluster:    aws.String(e.cluster),
+				MaxResults: awsMaxResults,
+				NextToken:  nextToken,
+			})
+			if err != nil {
+				e.err <- err
+				return
+			}
+			taskArns = append(taskArns, list.TaskArns...)
+			if list.NextToken == nil {
+				break
+			} else {
+				nextToken = list.NextToken
+			}
+		}
+	}
+
 	e.tasks = make(map[string]*ecs.Task)
-	if len(list.TaskArns) > 0 {
+	if len(taskArns) > 0 {
 		describe, err := e.client.DescribeTasks(&ecs.DescribeTasksInput{
 			Cluster: aws.String(e.cluster),
-			Tasks:   list.TaskArns,
+			Tasks:   taskArns,
 		})
 		if err != nil {
 			e.err <- err
@@ -247,9 +338,15 @@ func (e *App) getTask() {
 		return
 
 	} else {
-		err := errors.New(fmt.Sprintf("There are no running tasks in the cluster %s", e.cluster))
-		e.err <- err
-		return
+		if e.service == "" {
+			err := errors.New(fmt.Sprintf("There are no running tasks in the cluster %s\n", e.cluster))
+			e.err <- err
+			return
+		} else {
+			fmt.Printf(Red(fmt.Sprintf("\nThere are no running tasks for the service %s in cluster %s\n", e.service, e.cluster)))
+			e.input <- "getService"
+			return
+		}
 	}
 }
 

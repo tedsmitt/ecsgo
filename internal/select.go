@@ -29,12 +29,18 @@ func init() {
 // selectCluster provides the prompt for choosing a cluster
 func selectCluster(clusterNames []string) (string, error) {
 	if flag.Lookup("test.v") != nil {
+		if len(clusterNames) > 100 {
+			// For Pagination testing, after sorting alphabetically, the 101st cluster is at index 4, and proves
+			// that the pagination is working correctly
+			return clusterNames[4], nil
+		}
 		return clusterNames[0], nil
 	}
 
 	prompt := &survey.Select{
-		Message: "Select a cluster:",
-		Options: clusterNames,
+		Message:  "Select a cluster:",
+		Options:  clusterNames,
+		PageSize: pageSize,
 	}
 
 	var selection string
@@ -52,14 +58,20 @@ func selectCluster(clusterNames []string) (string, error) {
 // selectService provides the prompt for choosing a service
 func selectService(serviceNames []string) (string, error) {
 	if flag.Lookup("test.v") != nil {
+		if len(serviceNames) > int(*awsMaxResults) {
+			// For Pagination testing, after sorting alphabetically, the 101st service is at index 4, and proves
+			// that the pagination is working correctly
+			return serviceNames[4], nil
+		}
 		return serviceNames[0], nil
 	}
 
 	serviceNames = append(serviceNames, "*")
 
 	prompt := &survey.Select{
-		Message: fmt.Sprintf("Select a service: %s", Yellow("(choose * to display all tasks)")),
-		Options: createOpts(serviceNames),
+		Message:  fmt.Sprintf("Select a service: %s", Yellow("(choose * to display all tasks)")),
+		Options:  createOpts(serviceNames),
+		PageSize: pageSize,
 	}
 
 	var selection string
@@ -77,6 +89,11 @@ func selectService(serviceNames []string) (string, error) {
 // selectTask provides the prompt for choosing a Task
 func selectTask(tasks map[string]*ecs.Task) (*ecs.Task, error) {
 	if flag.Lookup("test.v") != nil {
+		// When testing pagination, we want to return a task from the second set of results,
+		// which will prove pagination is working correctly
+		if len(tasks) > int(*awsMaxResults) {
+			return tasks["199"], nil
+		}
 		for _, t := range tasks {
 			return t, nil // return the first value from the map
 		}
@@ -93,8 +110,9 @@ func selectTask(tasks map[string]*ecs.Task) (*ecs.Task, error) {
 	}
 
 	prompt := &survey.Select{
-		Message: "Select a task:",
-		Options: createOpts(taskOpts),
+		Message:  "Select a task:",
+		Options:  createOpts(taskOpts),
+		PageSize: pageSize,
 	}
 
 	var selection string
@@ -129,8 +147,9 @@ func selectContainer(containers []*ecs.Container) (*ecs.Container, error) {
 
 	var selection string
 	var prompt = &survey.Select{
-		Message: "Multiple containers found, please select:",
-		Options: createOpts(containerNames),
+		Message:  "Multiple containers found, please select:",
+		Options:  createOpts(containerNames),
+		PageSize: pageSize,
 	}
 
 	err := survey.AskOne(prompt, &selection, survey.WithIcons(func(icons *survey.IconSet) {
