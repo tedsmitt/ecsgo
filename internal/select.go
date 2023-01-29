@@ -46,7 +46,7 @@ func selectCluster(clusterNames []string) (string, error) {
 	var selection string
 	err := survey.AskOne(prompt, &selection, survey.WithIcons(func(icons *survey.IconSet) {
 		icons.SelectFocus.Text = "➡"
-		icons.SelectFocus.Format = "Cyan+hb"
+		icons.SelectFocus.Format = "cyan"
 	}))
 	if err != nil {
 		return "", err
@@ -77,7 +77,7 @@ func selectService(serviceNames []string) (string, error) {
 	var selection string
 	err := survey.AskOne(prompt, &selection, survey.WithIcons(func(icons *survey.IconSet) {
 		icons.SelectFocus.Text = "➡"
-		icons.SelectFocus.Format = "Magenta+hb"
+		icons.SelectFocus.Format = "magenta"
 	}))
 	if err != nil {
 		return "", err
@@ -118,7 +118,7 @@ func selectTask(tasks map[string]*ecs.Task) (*ecs.Task, error) {
 	var selection string
 	err := survey.AskOne(prompt, &selection, survey.WithIcons(func(icons *survey.IconSet) {
 		icons.SelectFocus.Text = "➡"
-		icons.SelectFocus.Format = "Green+hb"
+		icons.SelectFocus.Format = "green"
 	}))
 	if err != nil {
 		return &ecs.Task{}, err
@@ -154,7 +154,7 @@ func selectContainer(containers []*ecs.Container) (*ecs.Container, error) {
 
 	err := survey.AskOne(prompt, &selection, survey.WithIcons(func(icons *survey.IconSet) {
 		icons.SelectFocus.Text = "➡"
-		icons.SelectFocus.Format = "Yellow+hb"
+		icons.SelectFocus.Format = "yellow"
 	}))
 	if err != nil {
 		return &ecs.Container{}, err
