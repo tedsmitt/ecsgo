@@ -39,13 +39,21 @@ You can also view some additional documentation on using ECS Exec [here](https:/
 
 ## Usage
 
-| Flag | Description                                                                                  | Default Value              |
-| ---- | -------------------------------------------------------------------------------------------- | -------------------------- |
-| `-p` | Specify the profile to load the credentials                                                  | `default`                  |
-| `-c` | Specify the command to be run on the container (default will change depending on OS family). | `/bin/sh`,`powershell.exe` |
-| `-r` | Specify the AWS region to run in                                                             | N/A                        |
+The tool supports AWS Config/Environment Variables for configuration. If you aren't familiar with working on AWS via the CLI, you can read more about how to configure your environment [here](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html).
 
-The tool also supports AWS Config/Environment Variables for configuration. If you aren't familiar with working on AWS via the CLI, you can read more about how to configure your environment [here](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html).
+All args below are optional, if no args are specified the tool will start by prompting to select a cluster.
+
+| Option         | Short | Description                                                                                         | Default Value              |
+| -------------- | ----- | --------------------------------------------------------------------------------------------------- | -------------------------- |
+| `--profile`    | `-p`  | Specify the profile to load the credentials                                                         | `default`                  |
+| `--cmd`        | `-c`  | Specify the command to be run on the container (default will change depending on OS family).        | `/bin/sh`,`powershell.exe` |
+| `--region`     | `-r`  | Specify the AWS region to run in                                                                    | N/A                        |
+| `--cluster`    | `-n`  | Specify the name of the ECS cluster                                                                 | N/A                        |
+| `--service`    | `-s`  | Specify the name of the ECS Service                                                                 | N/A                        |
+| `--task`       | `-t`  | Specify the ID or ARN of the Task                                                                   | N/A                        |
+| `--container`  | `-u`  | Specify the container name in the task to use                                                       | N/A                        |
+| `--forward`    | `-f`  | Opt to port-forward instead of execute-command                                                      | N/A                        |
+| `--local-port` | `-l`  | Local port to use for port-forwarding, if not specified you will be prompted after selecting a task | N/A                        |
 
 #### See it in action below
 
