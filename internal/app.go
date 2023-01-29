@@ -359,8 +359,8 @@ func (e *App) getTask() {
 
 	} else {
 		if e.service == "" {
-			err := errors.New(fmt.Sprintf("There are no running tasks in the cluster %s\n", e.cluster))
-			e.err <- err
+			fmt.Printf(Red(fmt.Sprintf("There are no running tasks in the cluster %s\n", e.cluster)))
+			e.input <- "getCluster"
 			return
 		} else {
 			fmt.Printf(Red(fmt.Sprintf("\nThere are no running tasks for the service %s in cluster %s\n", e.service, e.cluster)))
