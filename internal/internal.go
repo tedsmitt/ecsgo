@@ -4,6 +4,8 @@ import (
 	"flag"
 	"os"
 	"os/exec"
+	"os/signal"
+	"syscall"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -102,6 +104,18 @@ func runCommand(process string, args ...string) error {
 		// emulate successful return for testing purposes
 		return nil
 	}
+
+	// Capture any SIGINTs and discard them
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, os.Interrupt, syscall.SIGINT)
+	go func() {
+		for {
+			select {
+			case <-sigs:
+			}
+		}
+	}()
+	defer close(sigs)
 
 	cmd := exec.Command(process, args...)
 	cmd.Stderr = os.Stderr
