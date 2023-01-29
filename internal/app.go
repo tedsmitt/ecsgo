@@ -98,6 +98,14 @@ func (e *App) getCluster() {
 	var clusters []*string
 	var nextToken *string
 
+	cliArg := viper.GetString("cluster")
+	if cliArg != "" {
+		e.cluster = cliArg
+		e.input <- "getService"
+		viper.Set("cluster", "") // Reset the cli arg so user can navigate
+		return
+	}
+
 	list, err := e.client.ListClusters(&ecs.ListClustersInput{
 		MaxResults: awsMaxResults,
 	})
@@ -162,6 +170,14 @@ func (e *App) getService() {
 	var services []*string
 	var nextToken *string
 
+	cliArg := viper.GetString("service")
+	if cliArg != "" {
+		e.service = cliArg
+		e.input <- "getTask"
+		viper.Set("service", "") // Reset the cli arg so user can navigate
+		return
+	}
+
 	list, err := e.client.ListServices(&ecs.ListServicesInput{
 		Cluster:    aws.String(e.cluster),
 		MaxResults: awsMaxResults,
@@ -214,6 +230,7 @@ func (e *App) getService() {
 		}
 
 		if selection == backOpt {
+			e.service = ""
 			e.input <- "getCluster"
 			return
 		}
@@ -236,6 +253,29 @@ func (e *App) getTask() {
 	var nextToken *string
 
 	var input *ecs.ListTasksInput
+
+	cliArg := viper.GetString("task")
+	if cliArg != "" {
+		describe, err := e.client.DescribeTasks(&ecs.DescribeTasksInput{
+			Cluster: aws.String(e.cluster),
+			Tasks:   []*string{aws.String(cliArg)},
+		})
+		if err != nil {
+			e.err <- err
+			return
+		}
+		if len(describe.Tasks) > 0 {
+			e.task = describe.Tasks[0]
+			e.getContainerOS()
+			e.input <- "getContainer"
+			viper.Set("task", "") // Reset the cli arg so user can navigate
+			return
+		} else {
+			fmt.Printf(Red(fmt.Sprintf("\nTask with ID %s not found in cluster %s\n", cliArg, e.cluster)))
+			e.input <- "getService"
+			return
+		}
+	}
 
 	// If no service has been set, or if ALL (*) services have been selected
 	// then we don't need to specify a ServiceName
@@ -304,6 +344,7 @@ func (e *App) getTask() {
 		}
 
 		if *selection.TaskArn == backOpt {
+			e.task = nil
 			if e.service == "" {
 				e.input <- "getCluster"
 				return
@@ -312,28 +353,7 @@ func (e *App) getTask() {
 			return
 		}
 		e.task = selection
-
-		// Get associated task definition and determine OS family if EC2 launch-type
-		if *e.task.LaunchType == "EC2" {
-			family, err := getPlatformFamily(e.client, e.cluster, e.task)
-			if err != nil {
-				e.err <- err
-				return
-			}
-			// if the OperatingSystemFamily has not been specified in the task definition
-			// then we refer to the container instance to determine the OS
-			if family == "" {
-				ec2Client := createEc2Client()
-				family, err = getContainerInstanceOS(e.client, ec2Client, e.cluster, *e.task.ContainerInstanceArn)
-				if err != nil {
-					e.err <- err
-					return
-				}
-			}
-			// Add our own PlatformFamily value for the task struct
-			e.task.PlatformFamily = &family
-		}
-
+		e.getContainerOS()
 		e.input <- "getContainer"
 		return
 
@@ -353,6 +373,18 @@ func (e *App) getTask() {
 // Lists containers in a task and prompts the user to select one (if there is more than 1 container)
 // otherwise returns the the only container in the task
 func (e *App) getContainer() {
+	cliArg := viper.GetString("container")
+	if cliArg != "" {
+		for _, c := range e.task.Containers {
+			if *c.Name == cliArg {
+				e.container = c
+				e.input <- "execute"
+				return
+			}
+		}
+		fmt.Printf(Red(fmt.Sprintf("\nSupplied container with name %s not found in task %s, cluster %s\n", cliArg, *e.task.TaskArn, e.cluster)))
+	}
+
 	if len(e.task.Containers) > 1 {
 		selection, err := selectContainer(e.task.Containers)
 		if err != nil {
@@ -374,5 +406,29 @@ func (e *App) getContainer() {
 		e.container = e.task.Containers[0]
 		e.input <- "execute"
 		return
+	}
+}
+
+// Determines the OS family of the container instance the task is running on
+func (e *App) getContainerOS() {
+	// Get associated task definition and determine OS family if EC2 launch-type
+	if *e.task.LaunchType == "EC2" {
+		family, err := getPlatformFamily(e.client, e.cluster, e.task)
+		if err != nil {
+			e.err <- err
+			return
+		}
+		// if the OperatingSystemFamily has not been specified in the task definition
+		// then we refer to the container instance to determine the OS
+		if family == "" {
+			ec2Client := createEc2Client()
+			family, err = getContainerInstanceOS(e.client, ec2Client, e.cluster, *e.task.ContainerInstanceArn)
+			if err != nil {
+				e.err <- err
+				return
+			}
+		}
+		// Add our own PlatformFamily value for the task struct
+		e.task.PlatformFamily = &family
 	}
 }

@@ -39,8 +39,8 @@ func (e *App) executeForward() error {
 	input := &ssm.StartSessionInput{
 		DocumentName: aws.String("AWS-StartPortForwardingSession"),
 		Parameters: map[string][]*string{
-			"portNumber":      []*string{aws.String(strconv.FormatInt(*containerPort, 10))},
-			"localPortNumber": []*string{aws.String(localPort)},
+			"portNumber":      {aws.String(strconv.FormatInt(*containerPort, 10))},
+			"localPortNumber": {aws.String(localPort)},
 		},
 		Target: aws.String(fmt.Sprintf("ecs:%s_%s_%s", e.cluster, taskID, *e.container.RuntimeId)),
 	}
