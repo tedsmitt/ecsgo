@@ -70,7 +70,7 @@ func init() {
 	rootCmd.PersistentFlags().StringP("cluster", "n", "", "Cluster Name")
 	rootCmd.PersistentFlags().StringP("service", "s", "", "Service Name")
 	rootCmd.PersistentFlags().StringP("task", "t", "", "Task ID")
-	rootCmd.PersistentFlags().StringP("container", "u", "", "Task ID")
+	rootCmd.PersistentFlags().StringP("container", "u", "", "Container name")
 	rootCmd.PersistentFlags().BoolP("forward", "f", false, "Port Forward")
 	rootCmd.PersistentFlags().StringP("local-port", "l", "", "Local port for use with port forwarding")
 
