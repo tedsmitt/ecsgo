@@ -98,11 +98,17 @@ func (e *App) getCluster() {
 	var clusters []*string
 	var nextToken *string
 
-	cliArg := viper.GetString("cluster")
-	if cliArg != "" {
-		e.cluster = cliArg
-		e.input <- "getService"
+	if cluster := viper.GetString("cluster"); cluster != "" {
+		e.cluster = cluster
 		viper.Set("cluster", "") // Reset the cli arg so user can navigate
+
+		// if task is set, skip ahead to getTask
+		if taskId := viper.GetString("task"); taskId != "" {
+			e.input <- "getTask"
+			return
+		}
+
+		e.input <- "getService"
 		return
 	}
 
