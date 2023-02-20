@@ -62,7 +62,7 @@ func (e *App) executeForward() error {
 
 	// Print Cluster/Service/Task information to the console
 	fmt.Printf("\nCluster: %v | Service: %v | Task: %s", Cyan(e.cluster), Magenta(e.service), Green(strings.Split(*e.task.TaskArn, "/")[2]))
-	fmt.Printf("\nPort-forwarding to container %v\n", Yellow(*e.container.Name))
+	fmt.Printf("\nPort-forwarding %s:%d -> container %v\n", localPort, *containerPort, Yellow(*e.container.Name))
 
 	// Execute the session-manager-plugin with our task details
 	err = runCommand("session-manager-plugin", string(sessJson), e.region, "StartSession", "", string(paramsJson))
