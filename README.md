@@ -1,10 +1,10 @@
 # ecsgo
 
-Heavily inspired by incredibly useful [gossm](https://github.com/gjbae1212/gossm), this tool makes use of the new [ECS ExecuteCommand API](https://aws.amazon.com/blogs/containers/new-using-amazon-ecs-exec-access-your-containers-fargate-ec2/) to connect to running ECS tasks. It provides an interactive prompt to select your cluster, task and container (if only one container in the task it will default to this), and opens a connection to it.
+Heavily inspired by incredibly useful [gossm](https://github.com/gjbae1212/gossm), this tool makes use of the new [ECS ExecuteCommand API](https://aws.amazon.com/blogs/containers/new-using-amazon-ecs-exec-access-your-containers-fargate-ec2/) to connect to running ECS tasks. It provides an interactive prompt to select your cluster, task and container (if only one container in the task it will default to this), and opens a connection to it. You can also use it to port-forward to containers within your tasks.
 
 That's it! Nothing fancy.
 
-## Installation
+### Installation
 
 #### MacOS/Homebrew
 
@@ -22,7 +22,7 @@ tar xzf ecsgo_*.tar.gz
 
 Move the `ecsgo` binary into your `$PATH`
 
-## Pre-reqs
+### Pre-requisites
 
 #### session-manager-plugin
 
@@ -33,24 +33,26 @@ MacOS users can alternatively install this via Homebrew:
 
 #### Infrastructure
 
-You'll need to follow the prerequisites for ECS Exec as outlined in the [blog post](https://aws.amazon.com/blogs/containers/new-using-amazon-ecs-exec-access-your-containers-fargate-ec2/).
+Use [ecs-exec-checker](https://github.com/aws-containers/amazon-ecs-exec-checker) to check for the pre-requisites to use ECS exec.
 
-You can also view some additional documentation on using ECS Exec [here](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-exec.html).
+### Usage
 
-## Usage
-
-| Flag | Description                                                                                  | Default Value              |
-| ---- | -------------------------------------------------------------------------------------------- | -------------------------- |
-| `-p` | Specify the profile to load the credentials                                                  | `default`                  |
-| `-c` | Specify the command to be run on the container (default will change depending on OS family). | `/bin/sh`,`powershell.exe` |
-| `-r` | Specify the AWS region to run in                                                             | N/A                        |
+By default, the tool will prompt you to interactively select which cluster, service, task and container to connect to. You can change the behaviour using the flags detailed below:
+| Long | Short | Description | Default Value |
+| -------------- | ----- | --------------------------------------------------------------------------------------------------------- | -------------------------- |
+| `--cluster` | `-n` | Specify the ECS cluster name | N/A |
+| `--service` | `-s` | Specify the ECS service name | N/A |
+| `--task` | `-t` | Specify the ECS Task ID | N/A |
+| `--container` | `-u` | Specify the container name in the ECS Task (if task only has one container this will selected by default) | N/A |
+| `--cmd` | `-c` | Specify the command to be run on the container (default will change depending on OS family). | `/bin/sh`,`powershell.exe` |
+| `--forward` | `-f` | Toggle port-forwarding to the container (Remote port will be taken from task/container definitions) | `false` |
+| `--local-port` | `-l` | Specify local port to forward (will prompt if not specified) | N/A |
+| `--profile` | `-p` | Specify the profile to load the credentials | `default` |
+| `--region` | `-r` | Specify the AWS region to run in | N/A |
 
 The tool also supports AWS Config/Environment Variables for configuration. If you aren't familiar with working on AWS via the CLI, you can read more about how to configure your environment [here](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html).
 
-#### See it in action below
+##### See it in action below
 
 ![ecsgo0 2 0](https://user-images.githubusercontent.com/25430401/114218136-ef8f7b00-9960-11eb-9c3f-b353ae0ff7ca.gif)
 
-#### Why would I use this over something like AWS Copilot?
-
-At this moment in time copilot only supports connecting to resources that are created and/or managed by the copilot CLI. This tool allows you to leverage ECS Exec easily with your existing resources, and plugs the gap until you are able to do the same with Copilot.
