@@ -49,7 +49,26 @@ of the ECS ExecuteCommand API under the hood.
 Requires pre-existing installation of the session-manager-plugin
 (https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html)
 ------------`,
-	Version: getVersion(),
+	// Validate args
+	PreRunE: func(cmd *cobra.Command, args []string) error {
+		cluster := cmd.PersistentFlags().Lookup("cluster")
+		service := cmd.PersistentFlags().Lookup("service")
+		task := cmd.PersistentFlags().Lookup("task")
+
+		if cluster.Value.String() == "" {
+			if task.Value.String() != "" {
+				return fmt.Errorf(app.Red("Cluster name must be specified when specifying task"))
+			}
+			if service.Value.String() != "" {
+				return fmt.Errorf(app.Red("Cluster name must be specified when specifying service"))
+			}
+		}
+		if task.Value.String() != "" && service.Value.String() != "" {
+			fmt.Printf(fmt.Sprintf("%s\n", app.Yellow("The service argument will be ignored when task is specified")))
+			viper.Set("service", "")
+		}
+		return nil
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 		a := app.CreateApp()
 		if err := a.Start(); err != nil {
@@ -57,6 +76,7 @@ Requires pre-existing installation of the session-manager-plugin
 			os.Exit(1)
 		}
 	},
+	Version: getVersion(),
 }
 
 func init() {
