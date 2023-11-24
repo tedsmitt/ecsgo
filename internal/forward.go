@@ -21,8 +21,12 @@ func (e *App) executeForward() error {
 		Target: aws.String(fmt.Sprintf("ecs:%s_%s_%s", e.cluster, taskID, *e.container.RuntimeId)),
 	}
 
-	mySession := session.Must(session.NewSession())
-	client := ssm.New(mySession, aws.NewConfig().WithRegion(e.region))
+	mySession := session.Must(session.NewSessionWithOptions(session.Options{
+		Config:            aws.Config{Region: aws.String(region)},
+		Profile:           viper.GetString("profile"),
+		SharedConfigState: session.SharedConfigEnable,
+	}))
+	client := ssm.New(mySession)
 	containerPort, err := getContainerPort(e.client, *e.task.TaskDefinitionArn, *e.container.Name)
 	if err != nil {
 		e.err <- err
