@@ -32,10 +32,10 @@ jobs:
         run: go test -v ./internal
 
       - name: Build
-        uses: goreleaser/goreleaser-action@v2
+        uses: goreleaser/goreleaser-action@v5
         with:
           version: latest
-          args: --snapshot --skip-publish --rm-dist
+          args: --snapshot --skip-publish --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
