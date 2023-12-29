@@ -60,5 +60,3 @@ brews:
     license: Apache2
     test: |
       system "#{bin}/goreleaser -v"
-    dependencies:
-      - name: go
