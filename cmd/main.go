@@ -93,6 +93,7 @@ func init() {
 	rootCmd.PersistentFlags().StringP("container", "u", "", "Container name")
 	rootCmd.PersistentFlags().BoolP("forward", "f", false, "Port Forward")
 	rootCmd.PersistentFlags().StringP("local-port", "l", "", "Local port for use with port forwarding")
+	rootCmd.PersistentFlags().BoolP("quiet", "q", false, "Do not print cluster and container information")
 
 	viper.BindPFlag("cmd", rootCmd.PersistentFlags().Lookup("cmd"))
 	viper.BindPFlag("profile", rootCmd.PersistentFlags().Lookup("profile"))
@@ -103,4 +104,5 @@ func init() {
 	viper.BindPFlag("container", rootCmd.PersistentFlags().Lookup("container"))
 	viper.BindPFlag("forward", rootCmd.PersistentFlags().Lookup("forward"))
 	viper.BindPFlag("local-port", rootCmd.PersistentFlags().Lookup("local-port"))
+	viper.BindPFlag("quiet", rootCmd.PersistentFlags().Lookup("quiet"))
 }

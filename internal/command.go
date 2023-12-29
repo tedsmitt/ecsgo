@@ -56,8 +56,10 @@ func (e *App) executeCommand() error {
 	}
 
 	// Print Cluster/Service/Task information to the console
-	fmt.Printf("\nCluster: %v | Service: %v | Task: %s | Cmd: %s", Cyan(e.cluster), Magenta(e.service), Green(strings.Split(*e.task.TaskArn, "/")[2]), Yellow(command))
-	fmt.Printf("\nConnecting to container %v\n", Yellow(*e.container.Name))
+	if !viper.GetBool("quiet") {
+		fmt.Printf("\nCluster: %v | Service: %v | Task: %s | Cmd: %s", Cyan(e.cluster), Magenta(e.service), Green(strings.Split(*e.task.TaskArn, "/")[2]), Yellow(command))
+		fmt.Printf("\nConnecting to container %v\n", Yellow(*e.container.Name))
+	}
 
 	// Execute the session-manager-plugin with our task details
 	err = runCommand("session-manager-plugin", string(execSess), e.region, "StartSession", "", string(targetJson), e.endpoint)
