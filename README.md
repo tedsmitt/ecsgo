@@ -45,10 +45,11 @@ By default, the tool will prompt you to interactively select which cluster, serv
 | `--task` | `-t` | Specify the ECS Task ID | N/A |
 | `--container` | `-u` | Specify the container name in the ECS Task (if task only has one container this will selected by default) | N/A |
 | `--cmd` | `-c` | Specify the command to be run on the container (default will change depending on OS family). | `/bin/sh`,`powershell.exe` |
-| `--forward` | `-f` | Toggle port-forwarding to the container (Remote port will be taken from task/container definitions) | `false` |
+| `--forward` | `-f` | Port-forward to the container (Remote port will be taken from task/container definitions) | `false` |
 | `--local-port` | `-l` | Specify local port to forward (will prompt if not specified) | N/A |
 | `--profile` | `-p` | Specify the profile to load the credentials | `default` |
 | `--region` | `-r` | Specify the AWS region to run in | N/A |
+| `--quiet` | `-q` | Disable output detailing the Cluster/Service/Task information | `false` |
 
 The tool also supports AWS Config/Environment Variables for configuration. If you aren't familiar with working on AWS via the CLI, you can read more about how to configure your environment [here](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html).
 
