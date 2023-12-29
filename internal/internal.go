@@ -13,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
 	"github.com/aws/aws-sdk-go/service/ecs"
 	"github.com/aws/aws-sdk-go/service/ecs/ecsiface"
+	"github.com/aws/aws-sdk-go/service/ssm"
 	"github.com/fatih/color"
 	"github.com/spf13/viper"
 )
@@ -57,6 +58,18 @@ func createEc2Client() *ec2.EC2 {
 		SharedConfigState: session.SharedConfigEnable,
 	}))
 	client := ec2.New(sess)
+
+	return client
+}
+
+func createSSMClient() *ssm.SSM {
+	region := viper.GetString("region")
+	sess := session.Must(session.NewSessionWithOptions(session.Options{
+		Config:            aws.Config{Region: aws.String(region)},
+		Profile:           viper.GetString("profile"),
+		SharedConfigState: session.SharedConfigEnable,
+	}))
+	client := ssm.New(sess)
 
 	return client
 }

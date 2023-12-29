@@ -92,12 +92,12 @@ func (m *MockEC2API) DescribeInstances(input *ec2.DescribeInstancesInput) (*ec2.
 // CreateMockApp initialises a new App struct and takes a MockClient as an argument - only used in tests
 func CreateMockApp(c *MockECSAPI) *App {
 	e := &App{
-		input:    make(chan string, 1),
-		err:      make(chan error, 1),
-		exit:     make(chan error, 1),
-		client:   c,
-		region:   "eu-west-1",
-		endpoint: "ecs.eu-west-1.amazonaws.com",
+		input:     make(chan string, 1),
+		err:       make(chan error, 1),
+		exit:      make(chan error, 1),
+		ecsClient: c,
+		region:    "eu-west-1",
+		endpoint:  "ecs.eu-west-1.amazonaws.com",
 	}
 
 	return e
@@ -106,13 +106,13 @@ func CreateMockApp(c *MockECSAPI) *App {
 func TestGetCluster(t *testing.T) {
 	paginationCall := 0
 	cases := []struct {
-		name     string
-		client   *MockECSAPI
-		expected string
+		name      string
+		ecsClient *MockECSAPI
+		expected  string
 	}{
 		{
 			name: "TestGetClusterWithResults",
-			client: &MockECSAPI{
+			ecsClient: &MockECSAPI{
 				ListClustersMock: func(input *ecs.ListClustersInput) (*ecs.ListClustersOutput, error) {
 					return &ecs.ListClustersOutput{
 						ClusterArns: []*string{
@@ -126,7 +126,7 @@ func TestGetCluster(t *testing.T) {
 		},
 		{
 			name: "TestGetClusterWithResultsPaginated",
-			client: &MockECSAPI{
+			ecsClient: &MockECSAPI{
 				ListClustersMock: func(input *ecs.ListClustersInput) (*ecs.ListClustersOutput, error) {
 					var clusters []*string
 					for i := paginationCall; i < (paginationCall * 100); i++ {
@@ -149,7 +149,7 @@ func TestGetCluster(t *testing.T) {
 		},
 		{
 			name: "TestGetClusterWithSingleResult",
-			client: &MockECSAPI{
+			ecsClient: &MockECSAPI{
 				ListClustersMock: func(input *ecs.ListClustersInput) (*ecs.ListClustersOutput, error) {
 					return &ecs.ListClustersOutput{
 						ClusterArns: []*string{
@@ -162,7 +162,7 @@ func TestGetCluster(t *testing.T) {
 		},
 		{
 			name: "TestGetClusterWithoutResults",
-			client: &MockECSAPI{
+			ecsClient: &MockECSAPI{
 				ListClustersMock: func(input *ecs.ListClustersInput) (*ecs.ListClustersOutput, error) {
 					return &ecs.ListClustersOutput{
 						ClusterArns: []*string{},
@@ -174,7 +174,7 @@ func TestGetCluster(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		input := CreateMockApp(c.client)
+		input := CreateMockApp(c.ecsClient)
 		input.getCluster()
 		if ok := assert.Equal(t, c.expected, input.cluster); ok != true {
 			fmt.Printf("%s FAILED\n", c.name)
@@ -186,13 +186,13 @@ func TestGetCluster(t *testing.T) {
 func TestGetService(t *testing.T) {
 	paginationCall := 1
 	cases := []struct {
-		name     string
-		client   *MockECSAPI
-		expected string
+		name      string
+		ecsClient *MockECSAPI
+		expected  string
 	}{
 		{
 			name: "TestGetServiceWithResults",
-			client: &MockECSAPI{
+			ecsClient: &MockECSAPI{
 				ListServicesMock: func(input *ecs.ListServicesInput) (*ecs.ListServicesOutput, error) {
 					return &ecs.ListServicesOutput{
 						ServiceArns: []*string{
@@ -206,7 +206,7 @@ func TestGetService(t *testing.T) {
 		},
 		{
 			name: "TestGetServiceWithResultsPaginated",
-			client: &MockECSAPI{
+			ecsClient: &MockECSAPI{
 				ListServicesMock: func(input *ecs.ListServicesInput) (*ecs.ListServicesOutput, error) {
 					var services []*string
 					for i := paginationCall; i < (paginationCall * 100); i++ {
@@ -229,7 +229,7 @@ func TestGetService(t *testing.T) {
 		},
 		{
 			name: "TestGetServiceWithoutResults",
-			client: &MockECSAPI{
+			ecsClient: &MockECSAPI{
 				ListServicesMock: func(input *ecs.ListServicesInput) (*ecs.ListServicesOutput, error) {
 					return &ecs.ListServicesOutput{
 						ServiceArns: []*string{},
@@ -241,7 +241,7 @@ func TestGetService(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		input := CreateMockApp(c.client)
+		input := CreateMockApp(c.ecsClient)
 		input.cluster = "App"
 		input.getService()
 		if ok := assert.Equal(t, c.expected, input.service); ok != true {
@@ -254,13 +254,13 @@ func TestGetService(t *testing.T) {
 func TestGetTask(t *testing.T) {
 	paginationCall := 1
 	cases := []struct {
-		name     string
-		client   *MockECSAPI
-		expected *ecs.Task
+		name      string
+		ecsClient *MockECSAPI
+		expected  *ecs.Task
 	}{
 		{
 			name: "TestGetTaskWithResults",
-			client: &MockECSAPI{
+			ecsClient: &MockECSAPI{
 				ListTasksMock: func(input *ecs.ListTasksInput) (*ecs.ListTasksOutput, error) {
 					return &ecs.ListTasksOutput{
 						TaskArns: []*string{
@@ -285,7 +285,7 @@ func TestGetTask(t *testing.T) {
 		},
 		{
 			name: "TestGetTaskWithResultsPaginated",
-			client: &MockECSAPI{
+			ecsClient: &MockECSAPI{
 				ListTasksMock: func(input *ecs.ListTasksInput) (*ecs.ListTasksOutput, error) {
 					var taskArns []*string
 					var tasks []*ecs.Task
@@ -323,7 +323,7 @@ func TestGetTask(t *testing.T) {
 		},
 		{
 			name: "TestGetTaskWithoutResults",
-			client: &MockECSAPI{
+			ecsClient: &MockECSAPI{
 				ListTasksMock: func(input *ecs.ListTasksInput) (*ecs.ListTasksOutput, error) {
 					return &ecs.ListTasksOutput{
 						TaskArns: []*string{},
@@ -335,7 +335,7 @@ func TestGetTask(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		input := CreateMockApp(c.client)
+		input := CreateMockApp(c.ecsClient)
 		input.cluster = "App"
 		input.service = "test-service-1"
 		input.getTask()
@@ -348,14 +348,14 @@ func TestGetTask(t *testing.T) {
 
 func TestGetContainer(t *testing.T) {
 	cases := []struct {
-		name     string
-		client   *MockECSAPI
-		task     *ecs.Task
-		expected *ecs.Container
+		name      string
+		ecsClient *MockECSAPI
+		task      *ecs.Task
+		expected  *ecs.Container
 	}{
 		{
-			name:   "TestGetContainerWithMultipleContainers",
-			client: &MockECSAPI{},
+			name:      "TestGetContainerWithMultipleContainers",
+			ecsClient: &MockECSAPI{},
 			task: &ecs.Task{
 				Containers: []*ecs.Container{
 					{
@@ -371,8 +371,8 @@ func TestGetContainer(t *testing.T) {
 			},
 		},
 		{
-			name:   "TestGetContainerWithSingleContainer",
-			client: &MockECSAPI{},
+			name:      "TestGetContainerWithSingleContainer",
+			ecsClient: &MockECSAPI{},
 			task: &ecs.Task{
 				Containers: []*ecs.Container{
 					{
@@ -387,7 +387,7 @@ func TestGetContainer(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		input := CreateMockApp(c.client)
+		input := CreateMockApp(c.ecsClient)
 		input.task = c.task
 		input.getContainer()
 		if ok := assert.Equal(t, c.expected, input.container); ok != true {

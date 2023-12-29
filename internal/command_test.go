@@ -11,11 +11,11 @@ import (
 
 func TestExecuteInput(t *testing.T) {
 	cases := []struct {
-		name     string
-		expected error
-		client   *MockECSAPI
-		cluster  string
-		task     *ecs.Task
+		name      string
+		expected  error
+		ecsClient *MockECSAPI
+		cluster   string
+		task      *ecs.Task
 	}{
 		{
 			name:    "TestExecuteInput",
@@ -30,7 +30,7 @@ func TestExecuteInput(t *testing.T) {
 				},
 				PlatformFamily: aws.String("Linux"),
 			},
-			client: &MockECSAPI{
+			ecsClient: &MockECSAPI{
 				ExecuteCommandMock: func(input *ecs.ExecuteCommandInput) (*ecs.ExecuteCommandOutput, error) {
 					return &ecs.ExecuteCommandOutput{
 						Session: &ecs.Session{
@@ -47,14 +47,14 @@ func TestExecuteInput(t *testing.T) {
 
 	for _, c := range cases {
 		app := &App{
-			input:    make(chan string, 1),
-			err:      make(chan error, 1),
-			exit:     make(chan error, 1),
-			client:   c.client,
-			region:   "eu-west-1",
-			endpoint: "ecs.eu-west-1.amazonaws.com",
-			cluster:  c.cluster,
-			task:     c.task,
+			input:     make(chan string, 1),
+			err:       make(chan error, 1),
+			exit:      make(chan error, 1),
+			ecsClient: c.ecsClient,
+			region:    "eu-west-1",
+			endpoint:  "ecs.eu-west-1.amazonaws.com",
+			cluster:   c.cluster,
+			task:      c.task,
 		}
 		app.container = c.task.Containers[0]
 		err := app.executeCommand()

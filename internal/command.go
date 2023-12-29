@@ -24,7 +24,7 @@ func (e *App) executeCommand() error {
 			command = "/bin/sh"
 		}
 	}
-	App, err := e.client.ExecuteCommand(&ecs.ExecuteCommandInput{
+	App, err := e.ecsClient.ExecuteCommand(&ecs.ExecuteCommandInput{
 		Cluster:     aws.String(e.cluster),
 		Interactive: aws.Bool(true),
 		Task:        e.task.TaskArn,
