@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ecs"
 	"github.com/aws/aws-sdk-go/service/ecs/ecsiface"
+	"github.com/aws/aws-sdk-go/service/ssm/ssmiface"
 	"github.com/spf13/viper"
 )
 
@@ -18,7 +19,8 @@ type App struct {
 	input      chan string
 	err        chan error
 	exit       chan error
-	client     ecsiface.ECSAPI
+	ecsClient  ecsiface.ECSAPI
+	ssmClient  ssmiface.SSMAPI
 	region     string
 	endpoint   string
 	cluster    string
@@ -31,14 +33,16 @@ type App struct {
 
 // CreateApp initialises a new App struct with the required initial values
 func CreateApp() *App {
-	client := createEcsClient()
+	ecsClient := createEcsClient()
+	ssmClient := createSSMClient()
 	e := &App{
-		input:    make(chan string, 1),
-		err:      make(chan error, 1),
-		exit:     make(chan error, 1),
-		client:   client,
-		region:   client.SigningRegion,
-		endpoint: client.Endpoint,
+		input:     make(chan string, 1),
+		err:       make(chan error, 1),
+		exit:      make(chan error, 1),
+		ecsClient: ecsClient,
+		ssmClient: ssmClient,
+		region:    ecsClient.SigningRegion,
+		endpoint:  ecsClient.Endpoint,
 	}
 
 	return e
@@ -112,7 +116,7 @@ func (e *App) getCluster() {
 		return
 	}
 
-	list, err := e.client.ListClusters(&ecs.ListClustersInput{
+	list, err := e.ecsClient.ListClusters(&ecs.ListClustersInput{
 		MaxResults: awsMaxResults,
 	})
 	if err != nil {
@@ -124,7 +128,7 @@ func (e *App) getCluster() {
 
 	if nextToken != nil {
 		for {
-			list, err := e.client.ListClusters(&ecs.ListClustersInput{
+			list, err := e.ecsClient.ListClusters(&ecs.ListClustersInput{
 				MaxResults: awsMaxResults,
 				NextToken:  nextToken,
 			})
@@ -184,7 +188,7 @@ func (e *App) getService() {
 		return
 	}
 
-	list, err := e.client.ListServices(&ecs.ListServicesInput{
+	list, err := e.ecsClient.ListServices(&ecs.ListServicesInput{
 		Cluster:    aws.String(e.cluster),
 		MaxResults: awsMaxResults,
 	})
@@ -197,7 +201,7 @@ func (e *App) getService() {
 
 	if nextToken != nil {
 		for {
-			list, err := e.client.ListServices(&ecs.ListServicesInput{
+			list, err := e.ecsClient.ListServices(&ecs.ListServicesInput{
 				Cluster:    aws.String(e.cluster),
 				MaxResults: awsMaxResults,
 				NextToken:  nextToken,
@@ -262,7 +266,7 @@ func (e *App) getTask() {
 
 	cliArg := viper.GetString("task")
 	if cliArg != "" {
-		describe, err := e.client.DescribeTasks(&ecs.DescribeTasksInput{
+		describe, err := e.ecsClient.DescribeTasks(&ecs.DescribeTasksInput{
 			Cluster: aws.String(e.cluster),
 			Tasks:   []*string{aws.String(cliArg)},
 		})
@@ -298,7 +302,7 @@ func (e *App) getTask() {
 		}
 	}
 
-	list, err := e.client.ListTasks(input)
+	list, err := e.ecsClient.ListTasks(input)
 	if err != nil {
 		e.err <- err
 		return
@@ -309,7 +313,7 @@ func (e *App) getTask() {
 
 	if nextToken != nil {
 		for {
-			list, err := e.client.ListTasks(&ecs.ListTasksInput{
+			list, err := e.ecsClient.ListTasks(&ecs.ListTasksInput{
 				Cluster:    aws.String(e.cluster),
 				MaxResults: awsMaxResults,
 				NextToken:  nextToken,
@@ -329,7 +333,7 @@ func (e *App) getTask() {
 
 	e.tasks = make(map[string]*ecs.Task)
 	if len(taskArns) > 0 {
-		describe, err := e.client.DescribeTasks(&ecs.DescribeTasksInput{
+		describe, err := e.ecsClient.DescribeTasks(&ecs.DescribeTasksInput{
 			Cluster: aws.String(e.cluster),
 			Tasks:   taskArns,
 		})
@@ -419,7 +423,7 @@ func (e *App) getContainer() {
 func (e *App) getContainerOS() {
 	// Get associated task definition and determine OS family if EC2 launch-type
 	if *e.task.LaunchType == "EC2" {
-		family, err := getPlatformFamily(e.client, e.cluster, e.task)
+		family, err := getPlatformFamily(e.ecsClient, e.cluster, e.task)
 		if err != nil {
 			e.err <- err
 			return
@@ -428,7 +432,7 @@ func (e *App) getContainerOS() {
 		// then we refer to the container instance to determine the OS
 		if family == "" {
 			ec2Client := createEc2Client()
-			family, err = getContainerInstanceOS(e.client, ec2Client, e.cluster, *e.task.ContainerInstanceArn)
+			family, err = getContainerInstanceOS(e.ecsClient, ec2Client, e.cluster, *e.task.ContainerInstanceArn)
 			if err != nil {
 				e.err <- err
 				return

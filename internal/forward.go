@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ssm"
 	"github.com/spf13/viper"
 )
@@ -21,13 +20,7 @@ func (e *App) executeForward() error {
 		Target: aws.String(fmt.Sprintf("ecs:%s_%s_%s", e.cluster, taskID, *e.container.RuntimeId)),
 	}
 
-	mySession := session.Must(session.NewSessionWithOptions(session.Options{
-		Config:            aws.Config{Region: aws.String(region)},
-		Profile:           viper.GetString("profile"),
-		SharedConfigState: session.SharedConfigEnable,
-	}))
-	client := ssm.New(mySession)
-	containerPort, err := getContainerPort(e.client, *e.task.TaskDefinitionArn, *e.container.Name)
+	containerPort, err := getContainerPort(e.ecsClient, *e.task.TaskDefinitionArn, *e.container.Name)
 	if err != nil {
 		e.err <- err
 		return err
@@ -48,7 +41,7 @@ func (e *App) executeForward() error {
 		},
 		Target: aws.String(fmt.Sprintf("ecs:%s_%s_%s", e.cluster, taskID, *e.container.RuntimeId)),
 	}
-	sess, err := client.StartSession(input)
+	sess, err := e.ssmClient.StartSession(input)
 	if err != nil {
 		e.err <- err
 		return err
