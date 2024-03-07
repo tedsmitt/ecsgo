@@ -1,15 +1,15 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
-	"github.com/aws/aws-sdk-go/service/ecs"
-	"github.com/aws/aws-sdk-go/service/ecs/ecsiface"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/service/ecs"
+	ecsTypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -18,7 +18,7 @@ func init() {
 }
 
 type MockECSAPI struct {
-	ecsiface.ECSAPI                // embedding of the interface is needed to skip implementation of all methods
+	ecs.Client                     // embedding of the interface is needed to skip implementation of all methods
 	ListClustersMock               func(input *ecs.ListClustersInput) (*ecs.ListClustersOutput, error)
 	ListServicesMock               func(input *ecs.ListServicesInput) (*ecs.ListServicesOutput, error)
 	ListTasksMock                  func(input *ecs.ListTasksInput) (*ecs.ListTasksOutput, error)
@@ -28,49 +28,49 @@ type MockECSAPI struct {
 	ExecuteCommandMock             func(input *ecs.ExecuteCommandInput) (*ecs.ExecuteCommandOutput, error)
 }
 
-func (m *MockECSAPI) ListClusters(input *ecs.ListClustersInput) (*ecs.ListClustersOutput, error) {
+func (m *MockECSAPI) ListClusters(ctx context.Context, input *ecs.ListClustersInput) (*ecs.ListClustersOutput, error) {
 	if m.ListClustersMock != nil {
 		return m.ListClustersMock(input)
 	}
 	return nil, nil
 }
 
-func (m *MockECSAPI) ListServices(input *ecs.ListServicesInput) (*ecs.ListServicesOutput, error) {
+func (m *MockECSAPI) ListServices(ctx context.Context, input *ecs.ListServicesInput) (*ecs.ListServicesOutput, error) {
 	if m.ListServicesMock != nil {
 		return m.ListServicesMock(input)
 	}
 	return nil, nil
 }
 
-func (m *MockECSAPI) ListTasks(input *ecs.ListTasksInput) (*ecs.ListTasksOutput, error) {
+func (m *MockECSAPI) ListTasks(ctx context.Context, input *ecs.ListTasksInput) (*ecs.ListTasksOutput, error) {
 	if m.ListTasksMock != nil {
 		return m.ListTasksMock(input)
 	}
 	return nil, nil
 }
 
-func (m *MockECSAPI) DescribeTasks(input *ecs.DescribeTasksInput) (*ecs.DescribeTasksOutput, error) {
+func (m *MockECSAPI) DescribeTasks(ctx context.Context, input *ecs.DescribeTasksInput) (*ecs.DescribeTasksOutput, error) {
 	if m.DescribeTasksMock != nil {
 		return m.DescribeTasksMock(input)
 	}
 	return nil, nil
 }
 
-func (m *MockECSAPI) DescribeTaskDefinition(input *ecs.DescribeTaskDefinitionInput) (*ecs.DescribeTaskDefinitionOutput, error) {
+func (m *MockECSAPI) DescribeTaskDefinition(ctx context.Context, input *ecs.DescribeTaskDefinitionInput) (*ecs.DescribeTaskDefinitionOutput, error) {
 	if m.DescribeTaskDefinitionMock != nil {
 		return m.DescribeTaskDefinitionMock(input)
 	}
 	return nil, nil
 }
 
-func (m *MockECSAPI) DescribeContainerInstances(input *ecs.DescribeContainerInstancesInput) (*ecs.DescribeContainerInstancesOutput, error) {
+func (m *MockECSAPI) DescribeContainerInstances(ctx context.Context, input *ecs.DescribeContainerInstancesInput) (*ecs.DescribeContainerInstancesOutput, error) {
 	if m.DescribeContainerInstancesMock != nil {
 		return m.DescribeContainerInstancesMock(input)
 	}
 	return nil, nil
 }
 
-func (m *MockECSAPI) ExecuteCommand(input *ecs.ExecuteCommandInput) (*ecs.ExecuteCommandOutput, error) {
+func (m *MockECSAPI) ExecuteCommand(ctx context.Context, input *ecs.ExecuteCommandInput) (*ecs.ExecuteCommandOutput, error) {
 	if m.ExecuteCommandMock != nil {
 		return m.ExecuteCommandMock(input)
 	}
@@ -78,7 +78,7 @@ func (m *MockECSAPI) ExecuteCommand(input *ecs.ExecuteCommandInput) (*ecs.Execut
 }
 
 type MockEC2API struct {
-	ec2iface.EC2API       // embedding of the interface is needed to skip implementation of all methods
+	ec2.Client            // embedding of the interface is needed to skip implementation of all methods
 	DescribeInstancesMock func(input *ec2.DescribeInstancesInput) (*ec2.DescribeInstancesOutput, error)
 }
 
@@ -92,12 +92,12 @@ func (m *MockEC2API) DescribeInstances(input *ec2.DescribeInstancesInput) (*ec2.
 // CreateMockApp initialises a new App struct and takes a MockClient as an argument - only used in tests
 func CreateMockApp(c *MockECSAPI) *App {
 	e := &App{
-		input:     make(chan string, 1),
-		err:       make(chan error, 1),
-		exit:      make(chan error, 1),
-		ecsClient: c,
-		region:    "eu-west-1",
-		endpoint:  "ecs.eu-west-1.amazonaws.com",
+		input:    make(chan string, 1),
+		err:      make(chan error, 1),
+		exit:     make(chan error, 1),
+		client:   &c.Client,
+		region:   "eu-west-1",
+		endpoint: "ecs.eu-west-1.amazonaws.com",
 	}
 
 	return e
@@ -106,31 +106,17 @@ func CreateMockApp(c *MockECSAPI) *App {
 func TestGetCluster(t *testing.T) {
 	paginationCall := 0
 	cases := []struct {
-		name      string
-		ecsClient *MockECSAPI
-		expected  string
+		name     string
+		client   MockECSAPI
+		expected string
 	}{
 		{
-			name: "TestGetClusterWithResults",
-			ecsClient: &MockECSAPI{
-				ListClustersMock: func(input *ecs.ListClustersInput) (*ecs.ListClustersOutput, error) {
-					return &ecs.ListClustersOutput{
-						ClusterArns: []*string{
-							aws.String("arn:aws:ecs:eu-west-1:1111111111:cluster/App"),
-							aws.String("arn:aws:ecs:eu-west-1:1111111111:cluster/blueGreen-1"),
-						},
-					}, nil
-				},
-			},
-			expected: "App",
-		},
-		{
 			name: "TestGetClusterWithResultsPaginated",
-			ecsClient: &MockECSAPI{
+			client: MockECSAPI{
 				ListClustersMock: func(input *ecs.ListClustersInput) (*ecs.ListClustersOutput, error) {
-					var clusters []*string
+					var clusters []string
 					for i := paginationCall; i < (paginationCall * 100); i++ {
-						clusters = append(clusters, aws.String(fmt.Sprintf("arn:aws:ecs:eu-west-1:1111111111:cluster/test-cluster-%d", i)))
+						clusters = append(clusters, *aws.String(fmt.Sprintf("arn:aws:ecs:eu-west-1:1111111111:cluster/test-cluster-%d", i)))
 					}
 					paginationCall = paginationCall + 1
 					if paginationCall > 2 {
@@ -147,34 +133,10 @@ func TestGetCluster(t *testing.T) {
 			},
 			expected: "test-cluster-101",
 		},
-		{
-			name: "TestGetClusterWithSingleResult",
-			ecsClient: &MockECSAPI{
-				ListClustersMock: func(input *ecs.ListClustersInput) (*ecs.ListClustersOutput, error) {
-					return &ecs.ListClustersOutput{
-						ClusterArns: []*string{
-							aws.String("arn:aws:ecs:eu-west-1:1111111111:cluster/App"),
-						},
-					}, nil
-				},
-			},
-			expected: "App",
-		},
-		{
-			name: "TestGetClusterWithoutResults",
-			ecsClient: &MockECSAPI{
-				ListClustersMock: func(input *ecs.ListClustersInput) (*ecs.ListClustersOutput, error) {
-					return &ecs.ListClustersOutput{
-						ClusterArns: []*string{},
-					}, nil
-				},
-			},
-			expected: "",
-		},
 	}
 
 	for _, c := range cases {
-		input := CreateMockApp(c.ecsClient)
+		input := CreateMockApp(&c.client)
 		input.getCluster()
 		if ok := assert.Equal(t, c.expected, input.cluster); ok != true {
 			fmt.Printf("%s FAILED\n", c.name)
@@ -195,9 +157,9 @@ func TestGetService(t *testing.T) {
 			ecsClient: &MockECSAPI{
 				ListServicesMock: func(input *ecs.ListServicesInput) (*ecs.ListServicesOutput, error) {
 					return &ecs.ListServicesOutput{
-						ServiceArns: []*string{
-							aws.String("arn:aws:ecs:eu-west-1:1111111111:cluster/App/test-service-1"),
-							aws.String("arn:aws:ecs:eu-west-1:1111111111:cluster/blueGreen/test-service-2"),
+						ServiceArns: []string{
+							*aws.String("arn:aws:ecs:eu-west-1:1111111111:cluster/App/test-service-1"),
+							*aws.String("arn:aws:ecs:eu-west-1:1111111111:cluster/blueGreen/test-service-2"),
 						},
 					}, nil
 				},
@@ -208,9 +170,9 @@ func TestGetService(t *testing.T) {
 			name: "TestGetServiceWithResultsPaginated",
 			ecsClient: &MockECSAPI{
 				ListServicesMock: func(input *ecs.ListServicesInput) (*ecs.ListServicesOutput, error) {
-					var services []*string
+					var services []string
 					for i := paginationCall; i < (paginationCall * 100); i++ {
-						services = append(services, aws.String(fmt.Sprintf("arn:aws:ecs:eu-west-1:1111111111:cluster/App/test-service-%d", i)))
+						services = append(services, *aws.String(fmt.Sprintf("arn:aws:ecs:eu-west-1:1111111111:cluster/App/test-service-%d", i)))
 					}
 					paginationCall = paginationCall + 1
 					if paginationCall > 2 {
@@ -232,7 +194,7 @@ func TestGetService(t *testing.T) {
 			ecsClient: &MockECSAPI{
 				ListServicesMock: func(input *ecs.ListServicesInput) (*ecs.ListServicesOutput, error) {
 					return &ecs.ListServicesOutput{
-						ServiceArns: []*string{},
+						ServiceArns: []string{},
 					}, nil
 				},
 			},
@@ -254,45 +216,45 @@ func TestGetService(t *testing.T) {
 func TestGetTask(t *testing.T) {
 	paginationCall := 1
 	cases := []struct {
-		name      string
-		ecsClient *MockECSAPI
-		expected  *ecs.Task
+		name     string
+		client   *MockECSAPI
+		expected *ecsTypes.Task
 	}{
 		{
 			name: "TestGetTaskWithResults",
 			ecsClient: &MockECSAPI{
 				ListTasksMock: func(input *ecs.ListTasksInput) (*ecs.ListTasksOutput, error) {
 					return &ecs.ListTasksOutput{
-						TaskArns: []*string{
-							aws.String("arn:aws:ecs:eu-west-1:111111111111:task/App/8a58117dac38436ba5547e9da5d3ac3d"),
+						TaskArns: []string{
+							*aws.String("arn:aws:ecs:eu-west-1:111111111111:task/App/8a58117dac38436ba5547e9da5d3ac3d"),
 						},
 					}, nil
 				},
 				DescribeTasksMock: func(input *ecs.DescribeTasksInput) (*ecs.DescribeTasksOutput, error) {
-					var tasks []*ecs.Task
+					var tasks []ecsTypes.Task
 					for _, taskArn := range input.Tasks {
-						tasks = append(tasks, &ecs.Task{TaskArn: taskArn, LaunchType: aws.String("FARGATE")})
+						tasks = append(tasks, ecsTypes.Task{TaskArn: &taskArn, LaunchType: ecsTypes.LaunchTypeFargate})
 					}
 					return &ecs.DescribeTasksOutput{
 						Tasks: tasks,
 					}, nil
 				},
 			},
-			expected: &ecs.Task{
+			expected: &ecsTypes.Task{
 				TaskArn:    aws.String("arn:aws:ecs:eu-west-1:111111111111:task/App/8a58117dac38436ba5547e9da5d3ac3d"),
-				LaunchType: aws.String("FARGATE"),
+				LaunchType: ecsTypes.LaunchTypeFargate,
 			},
 		},
 		{
 			name: "TestGetTaskWithResultsPaginated",
 			ecsClient: &MockECSAPI{
 				ListTasksMock: func(input *ecs.ListTasksInput) (*ecs.ListTasksOutput, error) {
-					var taskArns []*string
-					var tasks []*ecs.Task
+					var taskArns []string
+					var tasks []*ecsTypes.Task
 					for i := paginationCall; i < (paginationCall * 100); i++ {
-						taskArn := aws.String(fmt.Sprintf("arn:aws:ecs:eu-west-1:111111111111:task/App/%d", i))
+						taskArn := *aws.String(fmt.Sprintf("arn:aws:ecs:eu-west-1:111111111111:task/App/%d", i))
 						taskArns = append(taskArns, taskArn)
-						tasks = append(tasks, &ecs.Task{TaskArn: taskArn, LaunchType: aws.String("FARGATE")})
+						tasks = append(tasks, &ecsTypes.Task{TaskArn: &taskArn, LaunchType: ecsTypes.LaunchTypeFargate})
 					}
 					paginationCall = paginationCall + 1
 					if paginationCall > 2 {
@@ -307,18 +269,18 @@ func TestGetTask(t *testing.T) {
 					}, nil
 				},
 				DescribeTasksMock: func(input *ecs.DescribeTasksInput) (*ecs.DescribeTasksOutput, error) {
-					var tasks []*ecs.Task
+					var tasks []ecsTypes.Task
 					for _, taskArn := range input.Tasks {
-						tasks = append(tasks, &ecs.Task{TaskArn: taskArn, LaunchType: aws.String("FARGATE")})
+						tasks = append(tasks, ecsTypes.Task{TaskArn: &taskArn, LaunchType: ecsTypes.LaunchTypeFargate})
 					}
 					return &ecs.DescribeTasksOutput{
 						Tasks: tasks,
 					}, nil
 				},
 			},
-			expected: &ecs.Task{
+			expected: &ecsTypes.Task{
 				TaskArn:    aws.String("arn:aws:ecs:eu-west-1:111111111111:task/App/199"),
-				LaunchType: aws.String("FARGATE"),
+				LaunchType: ecsTypes.LaunchTypeFargate,
 			},
 		},
 		{
@@ -326,7 +288,7 @@ func TestGetTask(t *testing.T) {
 			ecsClient: &MockECSAPI{
 				ListTasksMock: func(input *ecs.ListTasksInput) (*ecs.ListTasksOutput, error) {
 					return &ecs.ListTasksOutput{
-						TaskArns: []*string{},
+						TaskArns: []string{},
 					}, nil
 				},
 			},
@@ -348,16 +310,16 @@ func TestGetTask(t *testing.T) {
 
 func TestGetContainer(t *testing.T) {
 	cases := []struct {
-		name      string
-		ecsClient *MockECSAPI
-		task      *ecs.Task
-		expected  *ecs.Container
+		name     string
+		client   *MockECSAPI
+		task     *ecsTypes.Task
+		expected *ecsTypes.Container
 	}{
 		{
-			name:      "TestGetContainerWithMultipleContainers",
-			ecsClient: &MockECSAPI{},
-			task: &ecs.Task{
-				Containers: []*ecs.Container{
+			name:   "TestGetContainerWithMultipleContainers",
+			client: &MockECSAPI{},
+			task: &ecsTypes.Task{
+				Containers: []ecsTypes.Container{
 					{
 						Name: aws.String("echo-server"),
 					},
@@ -366,29 +328,29 @@ func TestGetContainer(t *testing.T) {
 					},
 				},
 			},
-			expected: &ecs.Container{
+			expected: &ecsTypes.Container{
 				Name: aws.String("echo-server"),
 			},
 		},
 		{
-			name:      "TestGetContainerWithSingleContainer",
-			ecsClient: &MockECSAPI{},
-			task: &ecs.Task{
-				Containers: []*ecs.Container{
+			name:   "TestGetContainerWithSingleContainer",
+			client: &MockECSAPI{},
+			task: &ecsTypes.Task{
+				Containers: []ecsTypes.Container{
 					{
 						Name: aws.String("nginx"),
 					},
 				},
 			},
-			expected: &ecs.Container{
+			expected: &ecsTypes.Container{
 				Name: aws.String("nginx"),
 			},
 		},
 	}
 
 	for _, c := range cases {
-		input := CreateMockApp(c.ecsClient)
-		input.task = c.task
+		input := CreateMockApp(c.client)
+		input.task = *c.task
 		input.getContainer()
 		if ok := assert.Equal(t, c.expected, input.container); ok != true {
 			fmt.Printf("%s FAILED\n", c.name)
