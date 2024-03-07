@@ -1,16 +1,16 @@
 package app
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os/exec"
 	"sort"
 	"strings"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/ecs"
-	"github.com/aws/aws-sdk-go/service/ecs/ecsiface"
-	"github.com/aws/aws-sdk-go/service/ssm/ssmiface"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ecs"
+	ecsTypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/spf13/viper"
 )
 
@@ -19,16 +19,15 @@ type App struct {
 	input      chan string
 	err        chan error
 	exit       chan error
-	ecsClient  ecsiface.ECSAPI
-	ssmClient  ssmiface.SSMAPI
+	client     *ecs.Client
 	region     string
 	endpoint   string
 	cluster    string
 	service    string
-	task       *ecs.Task
-	tasks      map[string]*ecs.Task
-	container  *ecs.Container
-	containers []*ecs.Container
+	task       ecsTypes.Task
+	tasks      map[string]*ecsTypes.Task
+	container  *ecsTypes.Container
+	containers []*ecsTypes.Container
 }
 
 // CreateApp initialises a new App struct with the required initial values
@@ -36,13 +35,12 @@ func CreateApp() *App {
 	ecsClient := createEcsClient()
 	ssmClient := createSSMClient()
 	e := &App{
-		input:     make(chan string, 1),
-		err:       make(chan error, 1),
-		exit:      make(chan error, 1),
-		ecsClient: ecsClient,
-		ssmClient: ssmClient,
-		region:    ecsClient.SigningRegion,
-		endpoint:  ecsClient.Endpoint,
+		input:  make(chan string, 1),
+		err:    make(chan error, 1),
+		exit:   make(chan error, 1),
+		client: client,
+		region: client.Options().Region,
+		//	endpoint: client.Endpoint,
 	}
 
 	return e
@@ -99,7 +97,7 @@ func (e *App) Start() error {
 
 // Lists available clusters and prompts the user to select one
 func (e *App) getCluster() {
-	var clusters []*string
+	var clusters []string
 	var nextToken *string
 
 	if cluster := viper.GetString("cluster"); cluster != "" {
@@ -116,7 +114,11 @@ func (e *App) getCluster() {
 		return
 	}
 
-	list, err := e.ecsClient.ListClusters(&ecs.ListClustersInput{
+	if e.client == nil {
+
+		panic("oh no")
+	}
+	list, err := e.client.ListClusters(context.TODO(), &ecs.ListClustersInput{
 		MaxResults: awsMaxResults,
 	})
 	if err != nil {
@@ -128,7 +130,7 @@ func (e *App) getCluster() {
 
 	if nextToken != nil {
 		for {
-			list, err := e.ecsClient.ListClusters(&ecs.ListClustersInput{
+			list, err := e.client.ListClusters(context.TODO(), &ecs.ListClustersInput{
 				MaxResults: awsMaxResults,
 				NextToken:  nextToken,
 			})
@@ -147,13 +149,13 @@ func (e *App) getCluster() {
 
 	// Sort the list of clusters alphabetically
 	sort.Slice(clusters, func(i, j int) bool {
-		return *clusters[i] < *clusters[j]
+		return clusters[i] < clusters[j]
 	})
 
 	if len(clusters) > 0 {
 		var clusterNames []string
 		for _, c := range clusters {
-			arnSplit := strings.Split(*c, "/")
+			arnSplit := strings.Split(c, "/")
 			name := arnSplit[len(arnSplit)-1]
 			clusterNames = append(clusterNames, name)
 		}
@@ -177,7 +179,7 @@ func (e *App) getCluster() {
 
 // Lists available services and prompts the user to select one
 func (e *App) getService() {
-	var services []*string
+	var services []string
 	var nextToken *string
 
 	cliArg := viper.GetString("service")
@@ -188,7 +190,7 @@ func (e *App) getService() {
 		return
 	}
 
-	list, err := e.ecsClient.ListServices(&ecs.ListServicesInput{
+	list, err := e.client.ListServices(context.TODO(), &ecs.ListServicesInput{
 		Cluster:    aws.String(e.cluster),
 		MaxResults: awsMaxResults,
 	})
@@ -201,7 +203,7 @@ func (e *App) getService() {
 
 	if nextToken != nil {
 		for {
-			list, err := e.ecsClient.ListServices(&ecs.ListServicesInput{
+			list, err := e.client.ListServices(context.TODO(), &ecs.ListServicesInput{
 				Cluster:    aws.String(e.cluster),
 				MaxResults: awsMaxResults,
 				NextToken:  nextToken,
@@ -221,14 +223,14 @@ func (e *App) getService() {
 
 	// Sort the list of services alphabetically
 	sort.Slice(services, func(i, j int) bool {
-		return *services[i] < *services[j]
+		return services[i] < services[j]
 	})
 
 	if len(services) > 0 {
 		var serviceNames []string
 
-		for _, c := range services {
-			arnSplit := strings.Split(*c, "/")
+		for _, s := range services {
+			arnSplit := strings.Split(s, "/")
 			name := arnSplit[len(arnSplit)-1]
 			serviceNames = append(serviceNames, name)
 		}
@@ -259,16 +261,16 @@ func (e *App) getService() {
 
 // Lists tasks in a cluster and prompts the user to select one
 func (e *App) getTask() {
-	var taskArns []*string
+	var taskArns []string
 	var nextToken *string
 
 	var input *ecs.ListTasksInput
 
 	cliArg := viper.GetString("task")
 	if cliArg != "" {
-		describe, err := e.ecsClient.DescribeTasks(&ecs.DescribeTasksInput{
+		describe, err := e.client.DescribeTasks(context.TODO(), &ecs.DescribeTasksInput{
 			Cluster: aws.String(e.cluster),
-			Tasks:   []*string{aws.String(cliArg)},
+			Tasks:   []string{*aws.String(cliArg)},
 		})
 		if err != nil {
 			e.err <- err
@@ -302,7 +304,7 @@ func (e *App) getTask() {
 		}
 	}
 
-	list, err := e.ecsClient.ListTasks(input)
+	list, err := e.client.ListTasks(context.TODO(), input)
 	if err != nil {
 		e.err <- err
 		return
@@ -313,7 +315,7 @@ func (e *App) getTask() {
 
 	if nextToken != nil {
 		for {
-			list, err := e.ecsClient.ListTasks(&ecs.ListTasksInput{
+			list, err := e.client.ListTasks(context.TODO(), &ecs.ListTasksInput{
 				Cluster:    aws.String(e.cluster),
 				MaxResults: awsMaxResults,
 				NextToken:  nextToken,
@@ -331,9 +333,9 @@ func (e *App) getTask() {
 		}
 	}
 
-	e.tasks = make(map[string]*ecs.Task)
+	e.tasks = make(map[string]*ecsTypes.Task)
 	if len(taskArns) > 0 {
-		describe, err := e.ecsClient.DescribeTasks(&ecs.DescribeTasksInput{
+		describe, err := e.client.DescribeTasks(context.TODO(), &ecs.DescribeTasksInput{
 			Cluster: aws.String(e.cluster),
 			Tasks:   taskArns,
 		})
@@ -344,7 +346,7 @@ func (e *App) getTask() {
 
 		for _, t := range describe.Tasks {
 			taskId := strings.Split(*t.TaskArn, "/")[2]
-			e.tasks[taskId] = t
+			e.tasks[taskId] = &t
 		}
 
 		selection, err := selectTask(e.tasks)
@@ -354,7 +356,7 @@ func (e *App) getTask() {
 		}
 
 		if *selection.TaskArn == backOpt {
-			e.task = nil
+			// e.task = nil
 			if e.service == "" {
 				e.input <- "getCluster"
 				return
@@ -362,7 +364,7 @@ func (e *App) getTask() {
 			e.input <- "getService"
 			return
 		}
-		e.task = selection
+		e.task = *selection
 		e.getContainerOS()
 		e.input <- "getContainer"
 		return
@@ -387,7 +389,7 @@ func (e *App) getContainer() {
 	if cliArg != "" {
 		for _, c := range e.task.Containers {
 			if *c.Name == cliArg {
-				e.container = c
+				e.container = &c
 				e.input <- "execute"
 				return
 			}
@@ -396,7 +398,7 @@ func (e *App) getContainer() {
 	}
 
 	if len(e.task.Containers) > 1 {
-		selection, err := selectContainer(e.task.Containers)
+		selection, err := selectContainer(&e.task.Containers)
 		if err != nil {
 			e.err <- err
 			return
@@ -413,7 +415,7 @@ func (e *App) getContainer() {
 
 	} else {
 		// There is only one container in the task, return it
-		e.container = e.task.Containers[0]
+		e.container = &e.task.Containers[0]
 		e.input <- "execute"
 		return
 	}
@@ -422,8 +424,8 @@ func (e *App) getContainer() {
 // Determines the OS family of the container instance the task is running on
 func (e *App) getContainerOS() {
 	// Get associated task definition and determine OS family if EC2 launch-type
-	if *e.task.LaunchType == "EC2" {
-		family, err := getPlatformFamily(e.ecsClient, e.cluster, e.task)
+	if e.task.LaunchType == "EC2" {
+		family, err := getPlatformFamily(e.client, e.cluster, &e.task)
 		if err != nil {
 			e.err <- err
 			return

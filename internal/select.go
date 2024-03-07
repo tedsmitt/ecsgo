@@ -6,8 +6,9 @@ import (
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/ecs"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	// "github.com/aws/aws-sdk-go-v2/service/ecs"
+	ecsTypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 )
 
 func init() {
@@ -87,7 +88,7 @@ func selectService(serviceNames []string) (string, error) {
 }
 
 // selectTask provides the prompt for choosing a Task
-func selectTask(tasks map[string]*ecs.Task) (*ecs.Task, error) {
+func selectTask(tasks map[string]*ecsTypes.Task) (*ecsTypes.Task, error) {
 	if flag.Lookup("test.v") != nil {
 		// When testing pagination, we want to return a task from the second set of results,
 		// which will prove pagination is working correctly
@@ -121,11 +122,11 @@ func selectTask(tasks map[string]*ecs.Task) (*ecs.Task, error) {
 		icons.SelectFocus.Format = "green"
 	}))
 	if err != nil {
-		return &ecs.Task{}, err
+		return &ecsTypes.Task{}, err
 	}
 
 	if selection == backOpt {
-		return &ecs.Task{TaskArn: aws.String(backOpt)}, nil
+		return &ecsTypes.Task{TaskArn: aws.String(backOpt)}, nil
 	}
 
 	taskId := strings.Split(selection, " | ")[0]
@@ -135,13 +136,14 @@ func selectTask(tasks map[string]*ecs.Task) (*ecs.Task, error) {
 }
 
 // selectContainer prompts the user to choose a container within a task
-func selectContainer(containers []*ecs.Container) (*ecs.Container, error) {
+func selectContainer(containers *[]ecsTypes.Container) (*ecsTypes.Container, error) {
 	if flag.Lookup("test.v") != nil {
-		return containers[0], nil
+		container := *containers
+		return &container[0], nil
 	}
 
 	var containerNames []string
-	for _, c := range containers {
+	for _, c := range *containers {
 		containerNames = append(containerNames, *c.Name)
 	}
 
@@ -157,16 +159,16 @@ func selectContainer(containers []*ecs.Container) (*ecs.Container, error) {
 		icons.SelectFocus.Format = "yellow"
 	}))
 	if err != nil {
-		return &ecs.Container{}, err
+		return &ecsTypes.Container{}, err
 	}
 	if selection == backOpt {
-		return &ecs.Container{Name: aws.String(backOpt)}, nil
+		return &ecsTypes.Container{Name: aws.String(backOpt)}, nil
 	}
 
-	var container *ecs.Container
-	for _, c := range containers {
+	var container *ecsTypes.Container
+	for _, c := range *containers {
 		if selection == *c.Name {
-			container = c
+			container = &c
 		}
 	}
 

@@ -1,19 +1,18 @@
 package app
 
 import (
+	"context"
 	"flag"
 	"os"
 	"os/exec"
 	"os/signal"
 	"syscall"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
-	"github.com/aws/aws-sdk-go/service/ecs"
-	"github.com/aws/aws-sdk-go/service/ecs/ecsiface"
-	"github.com/aws/aws-sdk-go/service/ssm"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/service/ecs"
+	ecsTypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/fatih/color"
 	"github.com/spf13/viper"
 )
@@ -30,7 +29,7 @@ var (
 
 	pageSize      = 15
 	backOpt       = "⏎ Back" // backOpt is used to allow the user to navigate backwards in the selection prompt
-	awsMaxResults = aws.Int64(int64(100))
+	awsMaxResults = aws.Int32(int32(100))
 )
 
 func createOpts(opts []string) []string {
@@ -38,28 +37,31 @@ func createOpts(opts []string) []string {
 	return append(initialOpts, opts...)
 }
 
-func createEcsClient() *ecs.ECS {
+func createEcsClient() *ecs.Client {
 	region := viper.GetString("region")
 	endpointUrl := viper.GetString("aws-endpoint-url")
-	sess := session.Must(session.NewSessionWithOptions(session.Options{
-		Config:            aws.Config{Region: aws.String(region), Endpoint: aws.String(endpointUrl)},
-		Profile:           viper.GetString("profile"),
-		SharedConfigState: session.SharedConfigEnable,
-	}))
-	client := ecs.New(sess)
+	cfg, err := config.LoadDefaultConfig(context.Background(),
+		config.WithSharedConfigProfile(viper.GetString("profile")),
+		config.WithRegion(region),
+	)
+	if err != nil {
+		panic(err)
+	}
+	client := ecs.NewFromConfig(cfg)
 
 	return client
 }
 
-func createEc2Client() *ec2.EC2 {
+func createEc2Client() *ec2.Client {
 	region := viper.GetString("region")
-	endpointUrl := viper.GetString("aws-endpoint-url")
-	sess := session.Must(session.NewSessionWithOptions(session.Options{
-		Config:            aws.Config{Region: aws.String(region), Endpoint: aws.String(endpointUrl)},
-		Profile:           viper.GetString("profile"),
-		SharedConfigState: session.SharedConfigEnable,
-	}))
-	client := ec2.New(sess)
+	cfg, err := config.LoadDefaultConfig(context.Background(),
+		config.WithSharedConfigProfile(viper.GetString("profile")),
+		config.WithRegion(region),
+	)
+	if err != nil {
+		panic(err)
+	}
+	client := ec2.NewFromConfig(cfg)
 
 	return client
 }
@@ -79,35 +81,35 @@ func createSSMClient() *ssm.SSM {
 
 // getPlatformFamily checks an ECS tasks properties to see if the OS can be derived from its properties, otherwise
 // it will check the container instance itself to determine the OS.
-func getPlatformFamily(client ecsiface.ECSAPI, clusterName string, task *ecs.Task) (string, error) {
-	taskDefinition, err := client.DescribeTaskDefinition(&ecs.DescribeTaskDefinitionInput{
+func getPlatformFamily(client *ecs.Client, clusterName string, task *ecsTypes.Task) (string, error) {
+	taskDefinition, err := client.DescribeTaskDefinition(context.TODO(), &ecs.DescribeTaskDefinitionInput{
 		TaskDefinition: task.TaskDefinitionArn,
 	})
 	if err != nil {
 		return "", err
 	}
 	if taskDefinition.TaskDefinition.RuntimePlatform != nil {
-		return *taskDefinition.TaskDefinition.RuntimePlatform.OperatingSystemFamily, nil
+		return string(taskDefinition.TaskDefinition.RuntimePlatform.OperatingSystemFamily), nil
 	}
 	return "", nil
 }
 
 // getContainerInstanceOS describes the specified container instance and checks against the backing EC2 instance
 // to determine the platform.
-func getContainerInstanceOS(ecsClient ecsiface.ECSAPI, ec2Client ec2iface.EC2API, cluster string, containerInstanceArn string) (string, error) {
-	res, err := ecsClient.DescribeContainerInstances(&ecs.DescribeContainerInstancesInput{
+func getContainerInstanceOS(ecsClient *ecs.Client, ec2Client *ec2.Client, cluster string, containerInstanceArn string) (string, error) {
+	res, err := ecsClient.DescribeContainerInstances(context.TODO(), &ecs.DescribeContainerInstancesInput{
 		Cluster: aws.String(cluster),
-		ContainerInstances: []*string{
-			aws.String(containerInstanceArn),
+		ContainerInstances: []string{
+			*aws.String(containerInstanceArn),
 		},
 	})
 	if err != nil {
 		return "", err
 	}
 	instanceId := res.ContainerInstances[0].Ec2InstanceId
-	instance, err := ec2Client.DescribeInstances(&ec2.DescribeInstancesInput{
-		InstanceIds: []*string{
-			instanceId,
+	instance, err := ec2Client.DescribeInstances(context.TODO(), &ec2.DescribeInstancesInput{
+		InstanceIds: []string{
+			*instanceId,
 		},
 	})
 	operatingSystem := *instance.Reservations[0].Instances[0].PlatformDetails
@@ -145,17 +147,17 @@ func runCommand(process string, args ...string) error {
 	return nil
 }
 
-func getContainerPort(client ecsiface.ECSAPI, taskDefinitionArn string, containerName string) (*int64, error) {
-	res, err := client.DescribeTaskDefinition(&ecs.DescribeTaskDefinitionInput{
+func getContainerPort(client *ecs.Client, taskDefinitionArn string, containerName string) (*int32, error) {
+	res, err := client.DescribeTaskDefinition(context.TODO(), &ecs.DescribeTaskDefinitionInput{
 		TaskDefinition: aws.String(taskDefinitionArn),
 	})
 	if err != nil {
 		return nil, err
 	}
-	var container ecs.ContainerDefinition
+	var container ecsTypes.ContainerDefinition
 	for _, c := range res.TaskDefinition.ContainerDefinitions {
 		if *c.Name == containerName {
-			container = *c
+			container = c
 		}
 	}
 	return container.PortMappings[0].ContainerPort, nil
