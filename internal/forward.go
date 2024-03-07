@@ -1,14 +1,14 @@
 package app
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"strings"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/ssm"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	"github.com/spf13/viper"
 )
 
@@ -21,8 +21,14 @@ func (e *App) executeForward() error {
 		Target: aws.String(fmt.Sprintf("ecs:%s_%s_%s", e.cluster, taskID, *e.container.RuntimeId)),
 	}
 
-	mySession := session.Must(session.NewSession())
-	client := ssm.New(mySession, aws.NewConfig().WithRegion(e.region))
+	cfg, err := config.LoadDefaultConfig(context.Background(),
+		config.WithSharedConfigProfile(viper.GetString("profile")),
+		config.WithRegion(region),
+	)
+	if err != nil {
+		panic(err)
+	}
+	client := ssm.NewFromConfig(cfg) // TODO: add region
 	containerPort, err := getContainerPort(e.client, *e.task.TaskDefinitionArn, *e.container.Name)
 	if err != nil {
 		e.err <- err
@@ -36,15 +42,16 @@ func (e *App) executeForward() error {
 			return err
 		}
 	}
+	portNumber := fmt.Sprint(*containerPort)
 	input := &ssm.StartSessionInput{
 		DocumentName: aws.String("AWS-StartPortForwardingSession"),
-		Parameters: map[string][]*string{
-			"portNumber":      {aws.String(strconv.FormatInt(*containerPort, 10))},
-			"localPortNumber": {aws.String(localPort)},
+		Parameters: map[string][]string{
+			"localPortNumber": {localPort},
+			"portNumber":      {portNumber},
 		},
 		Target: aws.String(fmt.Sprintf("ecs:%s_%s_%s", e.cluster, taskID, *e.container.RuntimeId)),
 	}
-	sess, err := client.StartSession(input)
+	sess, err := client.StartSession(context.TODO(), input)
 	if err != nil {
 		e.err <- err
 		return err

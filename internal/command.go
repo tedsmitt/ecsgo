@@ -1,13 +1,14 @@
 package app
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/ecs"
-	"github.com/aws/aws-sdk-go/service/ssm"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ecs"
+	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	"github.com/spf13/viper"
 )
 
@@ -24,9 +25,9 @@ func (e *App) executeCommand() error {
 			command = "/bin/sh"
 		}
 	}
-	App, err := e.client.ExecuteCommand(&ecs.ExecuteCommandInput{
+	App, err := e.client.ExecuteCommand(context.TODO(), &ecs.ExecuteCommandInput{
 		Cluster:     aws.String(e.cluster),
-		Interactive: aws.Bool(true),
+		Interactive: *aws.Bool(true),
 		Task:        e.task.TaskArn,
 		Command:     aws.String(command),
 		Container:   e.container.Name,
@@ -60,7 +61,7 @@ func (e *App) executeCommand() error {
 	fmt.Printf("\nConnecting to container %v\n", Yellow(*e.container.Name))
 
 	// Execute the session-manager-plugin with our task details
-	err = runCommand("session-manager-plugin", string(execSess), e.region, "StartSession", "", string(targetJson), e.endpoint)
+	err = runCommand("session-manager-plugin", string(execSess), e.region, "StartSession", "", string(targetJson))
 	e.err <- err
 
 	return err
