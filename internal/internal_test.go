@@ -4,34 +4,36 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/aws/aws-sdk-go/service/ecs"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	ec2Types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/aws/aws-sdk-go-v2/service/ecs"
+	ecsTypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestGetPlatformFamily(t *testing.T) {
 	cases := []struct {
-		name      string
-		expected  string
-		ecsClient *MockECSAPI
-		cluster   string
-		task      *ecs.Task
+		name          string
+		expected      string
+		mockECSClient *MockECSAPI
+		cluster       string
+		task          *ecsTypes.Task
 	}{
 		{
 			name:    "TestGetPlatformFamilyWithFargateTask",
 			cluster: "test",
-			task: &ecs.Task{
+			task: &ecsTypes.Task{
 				TaskArn:        aws.String("arn:aws:ecs:eu-west-1:111111111111:task/App/8a58117dac38436ba5547e9da5d3ac3d"),
-				LaunchType:     aws.String("FARGATE"),
+				LaunchType:     ecsTypes.LaunchTypeFargate,
 				PlatformFamily: aws.String("Linux"),
 			},
-			ecsClient: &MockECSAPI{
+			mockECSClient: &MockECSAPI{
 				DescribeTaskDefinitionMock: func(input *ecs.DescribeTaskDefinitionInput) (*ecs.DescribeTaskDefinitionOutput, error) {
 					return &ecs.DescribeTaskDefinitionOutput{
-						TaskDefinition: &ecs.TaskDefinition{
-							RuntimePlatform: &ecs.RuntimePlatform{
-								OperatingSystemFamily: aws.String("Linux/UNIX"),
+						TaskDefinition: &ecsTypes.TaskDefinition{
+							RuntimePlatform: &ecsTypes.RuntimePlatform{
+								OperatingSystemFamily: ecsTypes.OSFamilyLinux,
 							},
 						},
 					}, nil
@@ -42,15 +44,15 @@ func TestGetPlatformFamily(t *testing.T) {
 		{
 			name:    "TestGetPlatformFamilyWithEC2LaunchTaskNoRuntimePlatformFail",
 			cluster: "test",
-			task: &ecs.Task{
+			task: &ecsTypes.Task{
 				TaskArn:              aws.String("arn:aws:ecs:eu-west-1:111111111111:task/App/8a58117dac38436ba5547e9da5d3ac3d"),
-				LaunchType:           aws.String("EC2"),
+				LaunchType:           ecsTypes.LaunchTypeEc2,
 				ContainerInstanceArn: aws.String("abcdefghij1234567890"),
 			},
-			ecsClient: &MockECSAPI{
+			mockECSClient: &MockECSAPI{
 				DescribeTaskDefinitionMock: func(input *ecs.DescribeTaskDefinitionInput) (*ecs.DescribeTaskDefinitionOutput, error) {
 					return &ecs.DescribeTaskDefinitionOutput{
-						TaskDefinition: &ecs.TaskDefinition{},
+						TaskDefinition: &ecsTypes.TaskDefinition{},
 					}, nil
 				},
 			},
@@ -59,7 +61,7 @@ func TestGetPlatformFamily(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		res, _ := getPlatformFamily(c.ecsClient, c.cluster, c.task)
+		res, _ := getPlatformFamily(&c.mockECSClient.Client, c.cluster, c.task)
 		if ok := assert.Equal(t, c.expected, res); ok != true {
 			fmt.Printf("%s FAILED\n", c.name)
 		}
@@ -71,8 +73,8 @@ func TestGetContainerInstanceOS(t *testing.T) {
 	cases := []struct {
 		name                 string
 		expected             string
-		ecsClient            *MockECSAPI
-		ec2Client            *MockEC2API
+		mockECSClient        *MockECSAPI
+		mockEC2Client        *MockEC2API
 		cluster              string
 		containerInstanceArn string
 	}{
@@ -80,10 +82,10 @@ func TestGetContainerInstanceOS(t *testing.T) {
 			name:                 "TestGetContainerInstanceOS",
 			cluster:              "test",
 			containerInstanceArn: "abcdef123456",
-			ecsClient: &MockECSAPI{
+			mockECSClient: &MockECSAPI{
 				DescribeContainerInstancesMock: func(input *ecs.DescribeContainerInstancesInput) (*ecs.DescribeContainerInstancesOutput, error) {
 					return &ecs.DescribeContainerInstancesOutput{
-						ContainerInstances: []*ecs.ContainerInstance{
+						ContainerInstances: []ecsTypes.ContainerInstance{
 							{
 								Ec2InstanceId: aws.String("i-0063cc3b62343f4d1"),
 							},
@@ -91,12 +93,12 @@ func TestGetContainerInstanceOS(t *testing.T) {
 					}, nil
 				},
 			},
-			ec2Client: &MockEC2API{
+			mockEC2Client: &MockEC2API{
 				DescribeInstancesMock: func(input *ec2.DescribeInstancesInput) (*ec2.DescribeInstancesOutput, error) {
 					return &ec2.DescribeInstancesOutput{
-						Reservations: []*ec2.Reservation{
+						Reservations: []ec2Types.Reservation{
 							{
-								Instances: []*ec2.Instance{
+								Instances: []ec2Types.Instance{
 									{
 										InstanceId:      aws.String("i-0063cc3b62343f4d1"),
 										PlatformDetails: aws.String("Linux/UNIX"),
@@ -111,7 +113,7 @@ func TestGetContainerInstanceOS(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		res, _ := getContainerInstanceOS(c.ecsClient, c.ec2Client, c.cluster, c.containerInstanceArn)
+		res, _ := getContainerInstanceOS(&c.mockECSClient.Client, &c.mockEC2Client.Client, c.cluster, c.containerInstanceArn)
 		if ok := assert.Equal(t, c.expected, res); ok != true {
 			fmt.Printf("%s FAILED\n", c.name)
 		}
