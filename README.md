@@ -50,6 +50,7 @@ By default, the tool will prompt you to interactively select which cluster, serv
 | `--profile` | `-p` | Specify the profile to load the credentials | `default` |
 | `--region` | `-r` | Specify the AWS region to run in | N/A |
 | `--quiet` | `-q` | Disable output detailing the Cluster/Service/Task information | `false` |
+| `--aws-endpoint-url` | `-e` | Specify the AWS endpoint used for all service requests | N/A |
 
 The tool also supports AWS Config/Environment Variables for configuration. If you aren't familiar with working on AWS via the CLI, you can read more about how to configure your environment [here](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html).
 

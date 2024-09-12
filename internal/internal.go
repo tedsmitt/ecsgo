@@ -40,8 +40,9 @@ func createOpts(opts []string) []string {
 
 func createEcsClient() *ecs.ECS {
 	region := viper.GetString("region")
+	endpointUrl := viper.GetString("aws-endpoint-url")
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
-		Config:            aws.Config{Region: aws.String(region)},
+		Config:            aws.Config{Region: aws.String(region), Endpoint: aws.String(endpointUrl)},
 		Profile:           viper.GetString("profile"),
 		SharedConfigState: session.SharedConfigEnable,
 	}))
@@ -52,8 +53,9 @@ func createEcsClient() *ecs.ECS {
 
 func createEc2Client() *ec2.EC2 {
 	region := viper.GetString("region")
+	endpointUrl := viper.GetString("aws-endpoint-url")
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
-		Config:            aws.Config{Region: aws.String(region)},
+		Config:            aws.Config{Region: aws.String(region), Endpoint: aws.String(endpointUrl)},
 		Profile:           viper.GetString("profile"),
 		SharedConfigState: session.SharedConfigEnable,
 	}))
@@ -64,8 +66,9 @@ func createEc2Client() *ec2.EC2 {
 
 func createSSMClient() *ssm.SSM {
 	region := viper.GetString("region")
+	endpointUrl := viper.GetString("aws-endpoint-url")
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
-		Config:            aws.Config{Region: aws.String(region)},
+		Config:            aws.Config{Region: aws.String(region), Endpoint: aws.String(endpointUrl)},
 		Profile:           viper.GetString("profile"),
 		SharedConfigState: session.SharedConfigEnable,
 	}))
