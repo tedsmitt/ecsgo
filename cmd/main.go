@@ -68,6 +68,12 @@ Requires pre-existing installation of the session-manager-plugin
 			fmt.Printf(fmt.Sprintf("%s\n", app.Yellow("The service argument will be ignored when task is specified")))
 			viper.Set("service", "")
 		}
+
+		if viper.GetBool("enable-env") {
+			viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+			viper.AutomaticEnv()
+		}
+
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
@@ -96,9 +102,7 @@ func init() {
 	rootCmd.PersistentFlags().StringP("local-port", "l", "", "Local port for use with port forwarding")
 	rootCmd.PersistentFlags().BoolP("quiet", "q", false, "Do not print cluster and container information")
 	rootCmd.PersistentFlags().StringP("aws-endpoint-url", "e", "", "AWS Endpoint Url")
-
-	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
-	viper.AutomaticEnv()
+	rootCmd.PersistentFlags().BoolP("enable-env", "v", false, "Enable ENV population of cli args")
 
 	viper.BindPFlag("cmd", rootCmd.PersistentFlags().Lookup("cmd"))
 	viper.BindPFlag("profile", rootCmd.PersistentFlags().Lookup("profile"))
@@ -111,4 +115,5 @@ func init() {
 	viper.BindPFlag("local-port", rootCmd.PersistentFlags().Lookup("local-port"))
 	viper.BindPFlag("quiet", rootCmd.PersistentFlags().Lookup("quiet"))
 	viper.BindPFlag("aws-endpoint-url", rootCmd.PersistentFlags().Lookup("aws-endpoint-url"))
+	viper.BindPFlag("enable-env", rootCmd.PersistentFlags().Lookup("enable-env"))	
 }
