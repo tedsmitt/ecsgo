@@ -51,6 +51,9 @@ By default, the tool will prompt you to interactively select which cluster, serv
 | `--region` | `-r` | Specify the AWS region to run in | N/A |
 | `--quiet` | `-q` | Disable output detailing the Cluster/Service/Task information | `false` |
 | `--aws-endpoint-url` | `-e` | Specify the AWS endpoint used for all service requests | N/A |
+| `--enable-env` | `-v` | Enable ENV population of cli args | `false` |
+
+
 
 The tool also supports AWS Config/Environment Variables for configuration. If you aren't familiar with working on AWS via the CLI, you can read more about how to configure your environment [here](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html).
 
