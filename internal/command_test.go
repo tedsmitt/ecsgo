@@ -54,6 +54,7 @@ func TestExecuteInput(t *testing.T) {
 			input:    make(chan string, 1),
 			err:      make(chan error, 1),
 			exit:     make(chan error, 1),
+			client:   c.client(t),
 			region:   "eu-west-1",
 			endpoint: "ecs.eu-west-1.amazonaws.com",
 			cluster:  c.cluster,
