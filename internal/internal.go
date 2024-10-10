@@ -166,7 +166,7 @@ func runCommand(process string, args ...string) error {
 	return nil
 }
 
-func getContainerPort(client *ecs.Client, taskDefinitionArn string, containerName string) (*int32, error) {
+func getContainerPort(client ECSClient, taskDefinitionArn string, containerName string) (*int32, error) {
 	res, err := client.DescribeTaskDefinition(context.TODO(), &ecs.DescribeTaskDefinitionInput{
 		TaskDefinition: aws.String(taskDefinitionArn),
 	})
