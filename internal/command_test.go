@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -14,7 +15,7 @@ func TestExecuteInput(t *testing.T) {
 	cases := []struct {
 		name     string
 		expected error
-		client   *MockECSAPI
+		client   func(t *testing.T) ECSClient
 		cluster  string
 		task     *ecsTypes.Task
 	}{
@@ -31,16 +32,18 @@ func TestExecuteInput(t *testing.T) {
 				},
 				PlatformFamily: aws.String("Linux"),
 			},
-			ecsClient: &MockECSAPI{
-				ExecuteCommandMock: func(input *ecs.ExecuteCommandInput) (*ecs.ExecuteCommandOutput, error) {
-					return &ecs.ExecuteCommandOutput{
-						Session: &ecsTypes.Session{
-							SessionId:  aws.String("ecs-execute-command-0e86561fddf625dc1"),
-							StreamUrl:  aws.String("wss://ssmmessages.eu-west-1.amazonaws.com/v1/data-channel/ecs-execute-command-blah"),
-							TokenValue: aws.String("abc123"),
-						},
-					}, nil
-				},
+			client: func(t *testing.T) ECSClient {
+				return ECSClientMock{
+					ExecuteCommandMock: func(ctx context.Context, input *ecs.ExecuteCommandInput, optFns ...func(*ecs.Options)) (*ecs.ExecuteCommandOutput, error) {
+						return &ecs.ExecuteCommandOutput{
+							Session: &ecsTypes.Session{
+								SessionId:  aws.String("ecs-execute-command-0e86561fddf625dc1"),
+								StreamUrl:  aws.String("wss://ssmmessages.eu-west-1.amazonaws.com/v1/data-channel/ecs-execute-command-blah"),
+								TokenValue: aws.String("abc123"),
+							},
+						}, nil
+					},
+				}
 			},
 			expected: nil,
 		},
@@ -51,11 +54,10 @@ func TestExecuteInput(t *testing.T) {
 			input:    make(chan string, 1),
 			err:      make(chan error, 1),
 			exit:     make(chan error, 1),
-			client:   &c.client.Client,
 			region:   "eu-west-1",
 			endpoint: "ecs.eu-west-1.amazonaws.com",
 			cluster:  c.cluster,
-			task:     *c.task,
+			task:     c.task,
 		}
 		app.container = &c.task.Containers[0]
 		err := app.executeCommand()
