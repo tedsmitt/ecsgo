@@ -115,7 +115,7 @@ func getPlatformFamily(client ECSClient, clusterName string, task *ecsTypes.Task
 
 // getContainerInstanceOS describes the specified container instance and checks against the backing EC2 instance
 // to determine the platform.
-func getContainerInstanceOS(ecsClient ECSClient, ec2Client *ec2.Client, cluster string, containerInstanceArn string) (string, error) {
+func getContainerInstanceOS(ecsClient ECSClient, ec2Client EC2Client, cluster string, containerInstanceArn string) (string, error) {
 	res, err := ecsClient.DescribeContainerInstances(context.TODO(), &ecs.DescribeContainerInstancesInput{
 		Cluster: aws.String(cluster),
 		ContainerInstances: []string{
