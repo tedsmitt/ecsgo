@@ -13,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	ecsTypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
+	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	"github.com/fatih/color"
 	"github.com/spf13/viper"
 )
@@ -39,7 +40,12 @@ func createOpts(opts []string) []string {
 
 func createEcsClient() *ecs.Client {
 	region := viper.GetString("region")
-	endpointUrl := viper.GetString("aws-endpoint-url")
+	getCustomAWSEndpoint := func(o *ecs.Options) {
+		endpointUrl := viper.GetString("aws-endpoint-url")
+		if endpointUrl != "" {
+			o.BaseEndpoint = aws.String(endpointUrl)
+		}
+	}
 	cfg, err := config.LoadDefaultConfig(context.Background(),
 		config.WithSharedConfigProfile(viper.GetString("profile")),
 		config.WithRegion(region),
@@ -47,13 +53,19 @@ func createEcsClient() *ecs.Client {
 	if err != nil {
 		panic(err)
 	}
-	client := ecs.NewFromConfig(cfg)
+	client := ecs.NewFromConfig(cfg, getCustomAWSEndpoint)
 
 	return client
 }
 
 func createEc2Client() *ec2.Client {
 	region := viper.GetString("region")
+	getCustomAWSEndpoint := func(o *ec2.Options) {
+		endpointUrl := viper.GetString("aws-endpoint-url")
+		if endpointUrl != "" {
+			o.BaseEndpoint = aws.String(endpointUrl)
+		}
+	}
 	cfg, err := config.LoadDefaultConfig(context.Background(),
 		config.WithSharedConfigProfile(viper.GetString("profile")),
 		config.WithRegion(region),
@@ -61,27 +73,34 @@ func createEc2Client() *ec2.Client {
 	if err != nil {
 		panic(err)
 	}
-	client := ec2.NewFromConfig(cfg)
+	client := ec2.NewFromConfig(cfg, getCustomAWSEndpoint)
 
 	return client
 }
 
-func createSSMClient() *ssm.SSM {
+func createSSMClient() *ssm.Client {
 	region := viper.GetString("region")
-	endpointUrl := viper.GetString("aws-endpoint-url")
-	sess := session.Must(session.NewSessionWithOptions(session.Options{
-		Config:            aws.Config{Region: aws.String(region), Endpoint: aws.String(endpointUrl)},
-		Profile:           viper.GetString("profile"),
-		SharedConfigState: session.SharedConfigEnable,
-	}))
-	client := ssm.New(sess)
+	getCustomAWSEndpoint := func(o *ssm.Options) {
+		endpointUrl := viper.GetString("aws-endpoint-url")
+		if endpointUrl != "" {
+			o.BaseEndpoint = aws.String(endpointUrl)
+		}
+	}
+	cfg, err := config.LoadDefaultConfig(context.Background(),
+		config.WithSharedConfigProfile(viper.GetString("profile")),
+		config.WithRegion(region),
+	)
+	if err != nil {
+		panic(err)
+	}
+	client := ssm.NewFromConfig(cfg, getCustomAWSEndpoint)
 
 	return client
 }
 
 // getPlatformFamily checks an ECS tasks properties to see if the OS can be derived from its properties, otherwise
 // it will check the container instance itself to determine the OS.
-func getPlatformFamily(client *ecs.Client, clusterName string, task *ecsTypes.Task) (string, error) {
+func getPlatformFamily(client ECSClient, clusterName string, task *ecsTypes.Task) (string, error) {
 	taskDefinition, err := client.DescribeTaskDefinition(context.TODO(), &ecs.DescribeTaskDefinitionInput{
 		TaskDefinition: task.TaskDefinitionArn,
 	})
@@ -96,7 +115,7 @@ func getPlatformFamily(client *ecs.Client, clusterName string, task *ecsTypes.Ta
 
 // getContainerInstanceOS describes the specified container instance and checks against the backing EC2 instance
 // to determine the platform.
-func getContainerInstanceOS(ecsClient *ecs.Client, ec2Client *ec2.Client, cluster string, containerInstanceArn string) (string, error) {
+func getContainerInstanceOS(ecsClient ECSClient, ec2Client *ec2.Client, cluster string, containerInstanceArn string) (string, error) {
 	res, err := ecsClient.DescribeContainerInstances(context.TODO(), &ecs.DescribeContainerInstancesInput{
 		Cluster: aws.String(cluster),
 		ContainerInstances: []string{
@@ -107,7 +126,7 @@ func getContainerInstanceOS(ecsClient *ecs.Client, ec2Client *ec2.Client, cluste
 		return "", err
 	}
 	instanceId := res.ContainerInstances[0].Ec2InstanceId
-	instance, err := ec2Client.DescribeInstances(context.TODO(), &ec2.DescribeInstancesInput{
+	instance, _ := ec2Client.DescribeInstances(context.TODO(), &ec2.DescribeInstancesInput{
 		InstanceIds: []string{
 			*instanceId,
 		},

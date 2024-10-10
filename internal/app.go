@@ -14,33 +14,40 @@ import (
 	"github.com/spf13/viper"
 )
 
+type ECSClient interface {
+	ListClusters(ctx context.Context, params *ecs.ListClustersInput, optFns ...func(*ecs.Options)) (*ecs.ListClustersOutput, error)
+	ListServices(ctx context.Context, params *ecs.ListServicesInput, optFns ...func(*ecs.Options)) (*ecs.ListServicesOutput, error)
+	ListTasks(ctx context.Context, params *ecs.ListTasksInput, optFns ...func(*ecs.Options)) (*ecs.ListTasksOutput, error)
+	DescribeTasks(ctx context.Context, params *ecs.DescribeTasksInput, optFns ...func(*ecs.Options)) (*ecs.DescribeTasksOutput, error)
+	DescribeTaskDefinition(ctx context.Context, params *ecs.DescribeTaskDefinitionInput, optFns ...func(*ecs.Options)) (*ecs.DescribeTaskDefinitionOutput, error)
+	DescribeContainerInstances(ctx context.Context, params *ecs.DescribeContainerInstancesInput, optFns ...func(*ecs.Options)) (*ecs.DescribeContainerInstancesOutput, error)
+	ExecuteCommand(ctx context.Context, params *ecs.ExecuteCommandInput, optFns ...func(*ecs.Options)) (*ecs.ExecuteCommandOutput, error)
+}
+
 // App is a struct that contains information about our command state
 type App struct {
-	input      chan string
-	err        chan error
-	exit       chan error
-	client     *ecs.Client
-	region     string
-	endpoint   string
-	cluster    string
-	service    string
-	task       ecsTypes.Task
-	tasks      map[string]*ecsTypes.Task
-	container  *ecsTypes.Container
-	containers []*ecsTypes.Container
+	input     chan string
+	err       chan error
+	exit      chan error
+	client    ECSClient
+	region    string
+	endpoint  string
+	cluster   string
+	service   string
+	task      *ecsTypes.Task
+	tasks     map[string]*ecsTypes.Task
+	container *ecsTypes.Container
 }
 
 // CreateApp initialises a new App struct with the required initial values
 func CreateApp() *App {
-	ecsClient := createEcsClient()
-	ssmClient := createSSMClient()
+	client := createEcsClient()
 	e := &App{
 		input:  make(chan string, 1),
 		err:    make(chan error, 1),
 		exit:   make(chan error, 1),
 		client: client,
 		region: client.Options().Region,
-		//	endpoint: client.Endpoint,
 	}
 
 	return e
@@ -277,13 +284,13 @@ func (e *App) getTask() {
 			return
 		}
 		if len(describe.Tasks) > 0 {
-			e.task = describe.Tasks[0]
+			e.task = &describe.Tasks[0]
 			e.getContainerOS()
 			e.input <- "getContainer"
 			viper.Set("task", "") // Reset the cli arg so user can navigate
 			return
 		} else {
-			fmt.Printf(Red(fmt.Sprintf("\nTask with ID %s not found in cluster %s\n", cliArg, e.cluster)))
+			fmt.Println(Red(fmt.Sprintf("\nTask with ID %s not found in cluster %s\n", cliArg, e.cluster)))
 			e.input <- "getService"
 			return
 		}
@@ -364,7 +371,7 @@ func (e *App) getTask() {
 			e.input <- "getService"
 			return
 		}
-		e.task = *selection
+		e.task = selection
 		e.getContainerOS()
 		e.input <- "getContainer"
 		return
@@ -425,7 +432,7 @@ func (e *App) getContainer() {
 func (e *App) getContainerOS() {
 	// Get associated task definition and determine OS family if EC2 launch-type
 	if e.task.LaunchType == "EC2" {
-		family, err := getPlatformFamily(e.client, e.cluster, &e.task)
+		family, err := getPlatformFamily(e.client, e.cluster, e.task)
 		if err != nil {
 			e.err <- err
 			return
@@ -434,7 +441,7 @@ func (e *App) getContainerOS() {
 		// then we refer to the container instance to determine the OS
 		if family == "" {
 			ec2Client := createEc2Client()
-			family, err = getContainerInstanceOS(e.ecsClient, ec2Client, e.cluster, *e.task.ContainerInstanceArn)
+			family, err = getContainerInstanceOS(e.client, ec2Client, e.cluster, *e.task.ContainerInstanceArn)
 			if err != nil {
 				e.err <- err
 				return

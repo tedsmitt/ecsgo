@@ -8,6 +8,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	"github.com/spf13/viper"
 )
@@ -29,7 +30,8 @@ func (e *App) executeForward() error {
 		panic(err)
 	}
 	client := ssm.NewFromConfig(cfg) // TODO: add region
-	containerPort, err := getContainerPort(e.client, *e.task.TaskDefinitionArn, *e.container.Name)
+	ecsClient := e.client.(*ecs.Client)
+	containerPort, err := getContainerPort(ecsClient, *e.task.TaskDefinitionArn, *e.container.Name)
 	if err != nil {
 		e.err <- err
 		return err
