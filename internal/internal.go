@@ -7,13 +7,14 @@ import (
 	"os/exec"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	ecsTypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
-	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	"github.com/fatih/color"
 	"github.com/spf13/viper"
 )
@@ -49,6 +50,9 @@ func createEcsClient() *ecs.Client {
 	cfg, err := config.LoadDefaultConfig(context.Background(),
 		config.WithSharedConfigProfile(viper.GetString("profile")),
 		config.WithRegion(region),
+		config.WithRetryer(func() aws.Retryer {
+			return retry.AddWithMaxBackoffDelay(retry.NewStandard(), time.Second*1)
+		}),
 	)
 	if err != nil {
 		panic(err)
@@ -69,31 +73,14 @@ func createEc2Client() *ec2.Client {
 	cfg, err := config.LoadDefaultConfig(context.Background(),
 		config.WithSharedConfigProfile(viper.GetString("profile")),
 		config.WithRegion(region),
+		config.WithRetryer(func() aws.Retryer {
+			return retry.AddWithMaxBackoffDelay(retry.NewStandard(), time.Second*1)
+		}),
 	)
 	if err != nil {
 		panic(err)
 	}
 	client := ec2.NewFromConfig(cfg, getCustomAWSEndpoint)
-
-	return client
-}
-
-func createSSMClient() *ssm.Client {
-	region := viper.GetString("region")
-	getCustomAWSEndpoint := func(o *ssm.Options) {
-		endpointUrl := viper.GetString("aws-endpoint-url")
-		if endpointUrl != "" {
-			o.BaseEndpoint = aws.String(endpointUrl)
-		}
-	}
-	cfg, err := config.LoadDefaultConfig(context.Background(),
-		config.WithSharedConfigProfile(viper.GetString("profile")),
-		config.WithRegion(region),
-	)
-	if err != nil {
-		panic(err)
-	}
-	client := ssm.NewFromConfig(cfg, getCustomAWSEndpoint)
 
 	return client
 }
