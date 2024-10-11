@@ -12,8 +12,8 @@ import (
 	"github.com/spf13/viper"
 )
 
-// executeCommand takes all of our previous values and builds a session for us
-// and then calls runCommand to execute the session input via session-manager-plugin
+// executeCommand takes the app state and builds an execute-command session for us
+// which is then passed to the session-manager-plugin for execution
 func (e *App) executeCommand() error {
 	var command string
 	if viper.GetString("cmd") != "" {

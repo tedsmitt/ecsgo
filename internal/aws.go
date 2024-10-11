@@ -1,12 +1,9 @@
+/* aws.go contains AWS Client creation funcs and other helpers used by the main app */
+
 package app
 
 import (
 	"context"
-	"flag"
-	"os"
-	"os/exec"
-	"os/signal"
-	"syscall"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -15,27 +12,21 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	ecsTypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
-	"github.com/fatih/color"
 	"github.com/spf13/viper"
 )
 
-var (
-	region string
+type EC2Client interface {
+	DescribeInstances(ctx context.Context, params *ec2.DescribeInstancesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeInstancesOutput, error)
+}
 
-	Red     = color.New(color.FgRed).SprintFunc()
-	Magenta = color.New(color.FgMagenta).SprintFunc()
-	Cyan    = color.New(color.FgCyan).SprintFunc()
-	Green   = color.New(color.FgGreen).SprintFunc()
-	Yellow  = color.New(color.FgYellow).SprintFunc()
-
-	pageSize      = 15
-	backOpt       = "⏎ Back" // backOpt is used to allow the user to navigate backwards in the selection prompt
-	awsMaxResults = aws.Int32(int32(100))
-)
-
-func createOpts(opts []string) []string {
-	initialOpts := []string{backOpt}
-	return append(initialOpts, opts...)
+type ECSClient interface {
+	ListClusters(ctx context.Context, params *ecs.ListClustersInput, optFns ...func(*ecs.Options)) (*ecs.ListClustersOutput, error)
+	ListServices(ctx context.Context, params *ecs.ListServicesInput, optFns ...func(*ecs.Options)) (*ecs.ListServicesOutput, error)
+	ListTasks(ctx context.Context, params *ecs.ListTasksInput, optFns ...func(*ecs.Options)) (*ecs.ListTasksOutput, error)
+	DescribeTasks(ctx context.Context, params *ecs.DescribeTasksInput, optFns ...func(*ecs.Options)) (*ecs.DescribeTasksOutput, error)
+	DescribeTaskDefinition(ctx context.Context, params *ecs.DescribeTaskDefinitionInput, optFns ...func(*ecs.Options)) (*ecs.DescribeTaskDefinitionOutput, error)
+	DescribeContainerInstances(ctx context.Context, params *ecs.DescribeContainerInstancesInput, optFns ...func(*ecs.Options)) (*ecs.DescribeContainerInstancesOutput, error)
+	ExecuteCommand(ctx context.Context, params *ecs.ExecuteCommandInput, optFns ...func(*ecs.Options)) (*ecs.ExecuteCommandOutput, error)
 }
 
 func createEcsClient() *ecs.Client {
@@ -61,7 +52,7 @@ func createEcsClient() *ecs.Client {
 	return client
 }
 
-func createEc2Client() *ec2.Client {
+func createEC2Client() *ec2.Client {
 	region := viper.GetString("region")
 	getCustomAWSEndpoint := func(o *ec2.Options) {
 		endpointUrl := viper.GetString("aws-endpoint-url")
@@ -119,37 +110,6 @@ func getContainerInstanceOS(ecsClient ECSClient, ec2Client EC2Client, cluster st
 	})
 	operatingSystem := *instance.Reservations[0].Instances[0].PlatformDetails
 	return operatingSystem, nil
-}
-
-// runCommand executes a command with args
-func runCommand(process string, args ...string) error {
-	if flag.Lookup("test.v") != nil {
-		// emulate successful return for testing purposes
-		return nil
-	}
-
-	// Capture any SIGINTs and discard them
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, os.Interrupt, syscall.SIGINT)
-	go func() {
-		for {
-			select {
-			case <-sigs:
-			}
-		}
-	}()
-	defer close(sigs)
-
-	cmd := exec.Command(process, args...)
-	cmd.Stderr = os.Stderr
-	cmd.Stdout = os.Stdout
-	cmd.Stdin = os.Stdin
-
-	if err := cmd.Run(); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func getContainerPort(client ECSClient, taskDefinitionArn string, containerName string) (*int32, error) {

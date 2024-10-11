@@ -1,35 +1,72 @@
+/* app.go contains the main logic for running the app */
+
 package app
 
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
+	"os"
 	"os/exec"
+	"os/signal"
 	"sort"
 	"strings"
+	"syscall"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	ecsTypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
+	"github.com/fatih/color"
 	"github.com/spf13/viper"
 )
 
-type EC2Client interface {
-	DescribeInstances(ctx context.Context, params *ec2.DescribeInstancesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeInstancesOutput, error)
+var (
+	region string
+
+	Red     = color.New(color.FgRed).SprintFunc()
+	Magenta = color.New(color.FgMagenta).SprintFunc()
+	Cyan    = color.New(color.FgCyan).SprintFunc()
+	Green   = color.New(color.FgGreen).SprintFunc()
+	Yellow  = color.New(color.FgYellow).SprintFunc()
+
+	pageSize      = 15
+	backOpt       = "⏎ Back" // backOpt is used to allow the user to navigate backwards in the selection prompt
+	awsMaxResults = aws.Int32(int32(100))
+)
+
+// runCommand executes a command in the current shell and returns an error if the command fails
+func runCommand(process string, args ...string) error {
+	if flag.Lookup("test.v") != nil {
+		// emulate successful return for testing purposes
+		return nil
+	}
+
+	// Capture any SIGINTs and discard them
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, os.Interrupt, syscall.SIGINT)
+	go func() {
+		for {
+			select {
+			case <-sigs:
+			}
+		}
+	}()
+	defer close(sigs)
+
+	cmd := exec.Command(process, args...)
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	cmd.Stdin = os.Stdin
+
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
-type ECSClient interface {
-	ListClusters(ctx context.Context, params *ecs.ListClustersInput, optFns ...func(*ecs.Options)) (*ecs.ListClustersOutput, error)
-	ListServices(ctx context.Context, params *ecs.ListServicesInput, optFns ...func(*ecs.Options)) (*ecs.ListServicesOutput, error)
-	ListTasks(ctx context.Context, params *ecs.ListTasksInput, optFns ...func(*ecs.Options)) (*ecs.ListTasksOutput, error)
-	DescribeTasks(ctx context.Context, params *ecs.DescribeTasksInput, optFns ...func(*ecs.Options)) (*ecs.DescribeTasksOutput, error)
-	DescribeTaskDefinition(ctx context.Context, params *ecs.DescribeTaskDefinitionInput, optFns ...func(*ecs.Options)) (*ecs.DescribeTaskDefinitionOutput, error)
-	DescribeContainerInstances(ctx context.Context, params *ecs.DescribeContainerInstancesInput, optFns ...func(*ecs.Options)) (*ecs.DescribeContainerInstancesOutput, error)
-	ExecuteCommand(ctx context.Context, params *ecs.ExecuteCommandInput, optFns ...func(*ecs.Options)) (*ecs.ExecuteCommandOutput, error)
-}
-
-// App is a struct that contains information about our command state
+// App is the main struct for the application which holds the state and methods for the application
 type App struct {
 	input     chan string
 	err       chan error
@@ -127,7 +164,6 @@ func (e *App) getCluster() {
 	}
 
 	if e.client == nil {
-
 		panic("oh no")
 	}
 	list, err := e.client.ListClusters(context.TODO(), &ecs.ListClustersInput{
@@ -445,7 +481,7 @@ func (e *App) getContainerOS() {
 		// if the OperatingSystemFamily has not been specified in the task definition
 		// then we refer to the container instance to determine the OS
 		if family == "" {
-			ec2Client := createEc2Client()
+			ec2Client := createEC2Client()
 			family, err = getContainerInstanceOS(e.client, ec2Client, e.cluster, *e.task.ContainerInstanceArn)
 			if err != nil {
 				e.err <- err

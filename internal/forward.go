@@ -13,8 +13,8 @@ import (
 	"github.com/spf13/viper"
 )
 
-// executeInput takes all of our previous values and builds a session for us
-// and then calls runCommand to execute the session input via session-manager-plugin
+// executeForward takes the app state and builds a port-forward session for us
+// which is then passed to the session-manager-plugin for execution
 func (e *App) executeForward() error {
 	taskArnSplit := strings.Split(*e.task.TaskArn, "/")
 	taskID := taskArnSplit[len(taskArnSplit)-1]
@@ -79,5 +79,4 @@ func (e *App) executeForward() error {
 	err = runCommand("session-manager-plugin", string(sessJson), e.region, "StartSession", "", string(paramsJson))
 	e.err <- err
 	return err
-
 }
