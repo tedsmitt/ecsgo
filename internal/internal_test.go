@@ -75,7 +75,7 @@ func TestGetPlatformFamily(t *testing.T) {
 
 	for _, c := range cases {
 		client := c.client(t)
-		res, _ := getPlatformFamily(client, c.cluster, c.task)
+		res, _ := getPlatformFamily(client, c.task)
 		if ok := assert.Equal(t, c.expected, res); ok != true {
 			fmt.Printf("%s FAILED\n", c.name)
 		}

@@ -69,10 +69,9 @@ Requires pre-existing installation of the session-manager-plugin
 			viper.Set("service", "")
 		}
 
-		if viper.GetBool("enable-env") {
-			viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
-			viper.AutomaticEnv()
-		}
+		viper.SetEnvPrefix("ECSGO")
+		viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+		viper.AutomaticEnv()
 
 		return nil
 	},
@@ -115,5 +114,4 @@ func init() {
 	viper.BindPFlag("local-port", rootCmd.PersistentFlags().Lookup("local-port"))
 	viper.BindPFlag("quiet", rootCmd.PersistentFlags().Lookup("quiet"))
 	viper.BindPFlag("aws-endpoint-url", rootCmd.PersistentFlags().Lookup("aws-endpoint-url"))
-	viper.BindPFlag("enable-env", rootCmd.PersistentFlags().Lookup("enable-env"))	
 }

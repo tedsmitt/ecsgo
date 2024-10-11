@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	ecsTypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/stretchr/testify/assert"
@@ -52,18 +51,6 @@ func (m ECSClientMock) DescribeContainerInstances(ctx context.Context, params *e
 }
 func (m ECSClientMock) ExecuteCommand(ctx context.Context, params *ecs.ExecuteCommandInput, optFns ...func(*ecs.Options)) (*ecs.ExecuteCommandOutput, error) {
 	return m.ExecuteCommandMock(ctx, params, optFns...)
-}
-
-type MockEC2API struct {
-	ec2.Client            // embedding of the interface is needed to skip implementation of all methods
-	DescribeInstancesMock func(input *ec2.DescribeInstancesInput) (*ec2.DescribeInstancesOutput, error)
-}
-
-func (m *MockEC2API) DescribeInstances(input *ec2.DescribeInstancesInput) (*ec2.DescribeInstancesOutput, error) {
-	if m.DescribeInstancesMock != nil {
-		return m.DescribeInstancesMock(input)
-	}
-	return nil, nil
 }
 
 // CreateMockApp initialises a new App struct and takes a MockClient as an argument - only used in tests

@@ -183,7 +183,7 @@ func (e *App) getCluster() {
 		return
 
 	} else {
-		err := errors.New("No clusters found in account or region")
+		err := errors.New("no clusters found in account or region")
 		e.err <- err
 		return
 	}
@@ -383,11 +383,11 @@ func (e *App) getTask() {
 
 	} else {
 		if e.service == "" {
-			fmt.Printf(Red(fmt.Sprintf("There are no running tasks in the cluster %s\n", e.cluster)))
+			fmt.Println(Red(fmt.Sprintf("There are no running tasks in the cluster %s\n", e.cluster)))
 			e.input <- "getCluster"
 			return
 		} else {
-			fmt.Printf(Red(fmt.Sprintf("\nThere are no running tasks for the service %s in cluster %s\n", e.service, e.cluster)))
+			fmt.Println(Red(fmt.Sprintf("\nThere are no running tasks for the service %s in cluster %s\n", e.service, e.cluster)))
 			e.input <- "getService"
 			return
 		}
@@ -406,7 +406,7 @@ func (e *App) getContainer() {
 				return
 			}
 		}
-		fmt.Printf(Red(fmt.Sprintf("\nSupplied container with name %s not found in task %s, cluster %s\n", cliArg, *e.task.TaskArn, e.cluster)))
+		fmt.Println(Red(fmt.Sprintf("\nSupplied container with name %s not found in task %s, cluster %s\n", cliArg, *e.task.TaskArn, e.cluster)))
 	}
 
 	if len(e.task.Containers) > 1 {
@@ -437,7 +437,7 @@ func (e *App) getContainer() {
 func (e *App) getContainerOS() {
 	// Get associated task definition and determine OS family if EC2 launch-type
 	if e.task.LaunchType == "EC2" {
-		family, err := getPlatformFamily(e.client, e.cluster, e.task)
+		family, err := getPlatformFamily(e.client, e.task)
 		if err != nil {
 			e.err <- err
 			return
