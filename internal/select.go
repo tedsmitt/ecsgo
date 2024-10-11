@@ -1,3 +1,5 @@
+/* select.go contains the logic for the Select/Survey views in the TUI app */
+
 package app
 
 import (
@@ -7,7 +9,7 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/aws/aws-sdk-go-v2/aws"
-	// "github.com/aws/aws-sdk-go-v2/service/ecs"
+
 	ecsTypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 )
 
@@ -25,6 +27,12 @@ func init() {
 		{{- color "reset"}}{{"\n"}}
 	  {{- end}}
 	{{- end}}`
+}
+
+// createOpts builds the initial options for the survey prompts
+func createOpts(opts []string) []string {
+	initialOpts := []string{backOpt}
+	return append(initialOpts, opts...)
 }
 
 // selectCluster provides the prompt for choosing a cluster
