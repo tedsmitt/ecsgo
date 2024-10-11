@@ -1,3 +1,4 @@
+version: 2
 before:
   hooks:
     - go mod tidy
@@ -49,7 +50,7 @@ release:
     name: ecsgo
 brews:
   - name: ecsgo
-    tap:
+    repository:
       owner: tedsmitt
       name: homebrew-ecsgo
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
