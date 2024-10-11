@@ -20,8 +20,7 @@ import (
 )
 
 var (
-	region   string
-	endpoint string
+	region string
 
 	Red     = color.New(color.FgRed).SprintFunc()
 	Magenta = color.New(color.FgMagenta).SprintFunc()
@@ -87,7 +86,7 @@ func createEc2Client() *ec2.Client {
 
 // getPlatformFamily checks an ECS tasks properties to see if the OS can be derived from its properties, otherwise
 // it will check the container instance itself to determine the OS.
-func getPlatformFamily(client ECSClient, clusterName string, task *ecsTypes.Task) (string, error) {
+func getPlatformFamily(client ECSClient, task *ecsTypes.Task) (string, error) {
 	taskDefinition, err := client.DescribeTaskDefinition(context.TODO(), &ecs.DescribeTaskDefinitionInput{
 		TaskDefinition: task.TaskDefinitionArn,
 	})
