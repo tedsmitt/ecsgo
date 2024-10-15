@@ -393,8 +393,9 @@ func (e *App) getTask() {
 		}
 
 		for _, t := range describe.Tasks {
+			task := t
 			taskId := strings.Split(*t.TaskArn, "/")[2]
-			e.tasks[taskId] = &t
+			e.tasks[taskId] = &task
 		}
 
 		selection, err := selectTask(e.tasks)
