@@ -437,8 +437,9 @@ func (e *App) getContainer() {
 	cliArg := viper.GetString("container")
 	if cliArg != "" {
 		for _, c := range e.task.Containers {
-			if *c.Name == cliArg {
-				e.container = &c
+			container := c
+			if *container.Name == cliArg {
+				e.container = &container
 				e.input <- "execute"
 				return
 			}

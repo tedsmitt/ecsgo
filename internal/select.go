@@ -175,8 +175,9 @@ func selectContainer(containers *[]ecsTypes.Container) (*ecsTypes.Container, err
 
 	var container *ecsTypes.Container
 	for _, c := range *containers {
-		if selection == *c.Name {
-			container = &c
+		cont := c
+		if selection == *cont.Name {
+			container = &cont
 		}
 	}
 
