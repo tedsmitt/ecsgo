@@ -101,7 +101,6 @@ func init() {
 	rootCmd.PersistentFlags().StringP("local-port", "l", "", "Local port for use with port forwarding")
 	rootCmd.PersistentFlags().BoolP("quiet", "q", false, "Do not print cluster and container information")
 	rootCmd.PersistentFlags().StringP("aws-endpoint-url", "e", "", "AWS Endpoint Url")
-	rootCmd.PersistentFlags().BoolP("enable-env", "v", false, "Enable ENV population of cli args")
 
 	viper.BindPFlag("cmd", rootCmd.PersistentFlags().Lookup("cmd"))
 	viper.BindPFlag("profile", rootCmd.PersistentFlags().Lookup("profile"))
