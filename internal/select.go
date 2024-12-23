@@ -7,26 +7,50 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/AlecAivazis/survey/v2"
+	"github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/bubbles/list"
 	"github.com/aws/aws-sdk-go-v2/aws"
 
 	ecsTypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 )
 
-func init() {
-	survey.SelectQuestionTemplate = `
-	{{- if .ShowHelp }}{{- color .Config.Icons.Help.Format }}{{ .Config.Icons.Help.Text }} {{ .Help }}{{color "reset"}}{{"\n"}}{{end}}
-	{{- color .Config.Icons.Question.Format }}{{ .Config.Icons.Question.Text }} {{color "reset"}}
-	{{- color "default+hb"}}{{ .Message }}{{ .FilterMessage }}{{color "reset"}}
-	{{- if .ShowAnswer}}{{color "Cyan"}} {{""}}{{color "reset"}}
-	{{- else}}
-	  {{- " "}}{{- color "Cyan"}}[Type to filter{{- if and .Help (not .ShowHelp)}}, {{ .Config.HelpInput }} for more help{{end}}]{{color "reset"}}{{- "\n"}}
-	  {{- range $ix, $choice := .PageEntries}}
-		{{- if eq $ix $.SelectedIndex }}{{color $.Config.Icons.SelectFocus.Format }}{{ $.Config.Icons.SelectFocus.Text }} {{else}}{{color "default"}}  {{end}}
-		{{- $choice.Value}}
-		{{- color "reset"}}{{"\n"}}
-	  {{- end}}
-	{{- end}}`
+type item struct {
+	title, desc string
+}
+
+func (i item) Title() string       { return i.title }
+func (i item) Description() string { return i.desc }
+func (i item) FilterValue() string { return i.title }
+
+func createList(items []list.Item, title string) list.Model {
+	const defaultWidth = 20
+	const listHeight = 14
+
+	l := list.New(items, list.NewDefaultDelegate(), defaultWidth, listHeight)
+	l.Title = title
+	l.SetShowStatusBar(false)
+	l.SetFilteringEnabled(true)
+	l.Styles.Title = titleStyle
+	l.Styles.PaginationStyle = paginationStyle
+	l.Styles.HelpStyle = helpStyle
+
+	return l
+}
+
+func runList(l list.Model) (string, error) {
+	p := tea.NewProgram(l)
+	m, err := p.StartReturningModel()
+	if err != nil {
+		return "", err
+	}
+
+	if l, ok := m.(list.Model); ok {
+		if len(l.SelectedItems()) > 0 {
+			return l.SelectedItems()[0].(item).title, nil
+		}
+	}
+
+	return "", fmt.Errorf("no item selected")
 }
 
 // createOpts builds the initial options for the survey prompts
@@ -46,17 +70,13 @@ func selectCluster(clusterNames []string) (string, error) {
 		return clusterNames[0], nil
 	}
 
-	prompt := &survey.Select{
-		Message:  "Select a cluster:",
-		Options:  clusterNames,
-		PageSize: pageSize,
+	var items []list.Item
+	for _, name := range clusterNames {
+		items = append(items, item{title: name})
 	}
 
-	var selection string
-	err := survey.AskOne(prompt, &selection, survey.WithIcons(func(icons *survey.IconSet) {
-		icons.SelectFocus.Text = "➡"
-		icons.SelectFocus.Format = "cyan"
-	}))
+	l := createList(items, "Select a cluster:")
+	selection, err := runList(l)
 	if err != nil {
 		return "", err
 	}
@@ -77,17 +97,13 @@ func selectService(serviceNames []string) (string, error) {
 
 	serviceNames = append(serviceNames, "*")
 
-	prompt := &survey.Select{
-		Message:  fmt.Sprintf("Select a service: %s", Yellow("(choose * to display all tasks)")),
-		Options:  createOpts(serviceNames),
-		PageSize: pageSize,
+	var items []list.Item
+	for _, name := range serviceNames {
+		items = append(items, item{title: name})
 	}
 
-	var selection string
-	err := survey.AskOne(prompt, &selection, survey.WithIcons(func(icons *survey.IconSet) {
-		icons.SelectFocus.Text = "➡"
-		icons.SelectFocus.Format = "magenta"
-	}))
+	l := createList(items, fmt.Sprintf("Select a service: %s", Yellow("(choose * to display all tasks)")))
+	selection, err := runList(l)
 	if err != nil {
 		return "", err
 	}
@@ -118,17 +134,13 @@ func selectTask(tasks map[string]*ecsTypes.Task) (*ecsTypes.Task, error) {
 		taskOpts = append(taskOpts, fmt.Sprintf("%s | %s | (%s)", id, taskDefinition, strings.Join(containers, ",")))
 	}
 
-	prompt := &survey.Select{
-		Message:  "Select a task:",
-		Options:  createOpts(taskOpts),
-		PageSize: pageSize,
+	var items []list.Item
+	for _, opt := range taskOpts {
+		items = append(items, item{title: opt})
 	}
 
-	var selection string
-	err := survey.AskOne(prompt, &selection, survey.WithIcons(func(icons *survey.IconSet) {
-		icons.SelectFocus.Text = "➡"
-		icons.SelectFocus.Format = "green"
-	}))
+	l := createList(items, "Select a task:")
+	selection, err := runList(l)
 	if err != nil {
 		return &ecsTypes.Task{}, err
 	}
@@ -155,17 +167,13 @@ func selectContainer(containers *[]ecsTypes.Container) (*ecsTypes.Container, err
 		containerNames = append(containerNames, *c.Name)
 	}
 
-	var selection string
-	var prompt = &survey.Select{
-		Message:  "Multiple containers found, please select:",
-		Options:  createOpts(containerNames),
-		PageSize: pageSize,
+	var items []list.Item
+	for _, name := range containerNames {
+		items = append(items, item{title: name})
 	}
 
-	err := survey.AskOne(prompt, &selection, survey.WithIcons(func(icons *survey.IconSet) {
-		icons.SelectFocus.Text = "➡"
-		icons.SelectFocus.Format = "yellow"
-	}))
+	l := createList(items, "Multiple containers found, please select:")
+	selection, err := runList(l)
 	if err != nil {
 		return &ecsTypes.Container{}, err
 	}
