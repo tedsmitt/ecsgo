@@ -1,5 +1,8 @@
 # ecsgo
 
+> [!IMPORTANT]
+> PLEASE READ: I recommend using [e1s](https://github.com/keidarcy/e1s) as this does what ecsgo does but with a much better experience and far more capabilities.
+
 Inspired by the incredibly useful [gossm](https://github.com/gjbae1212/gossm), this tool makes use of the [ECS ExecuteCommand API](https://aws.amazon.com/blogs/containers/new-using-amazon-ecs-exec-access-your-containers-fargate-ec2/) to connect to running ECS tasks.
 
 It provides an interactive prompt to select your cluster, task and container (if only one container in the task it will default to this), and opens a connection to it. You can also use it to port-forward to containers within your tasks.
