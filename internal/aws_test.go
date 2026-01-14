@@ -140,3 +140,107 @@ func TestGetContainerInstanceOS(t *testing.T) {
 		fmt.Printf("%s PASSED\n", c.name)
 	}
 }
+
+func TestGetContainerPort(t *testing.T) {
+	cases := []struct {
+		name          string
+		expected      *int32
+		expectedErr   bool
+		client        func(t *testing.T) ECSClient
+		taskDefArn    string
+		containerName string
+	}{
+		{
+			name:          "TestGetContainerPortSuccess",
+			taskDefArn:    "arn:aws:ecs:eu-west-1:111111111111:task-definition/my-task:1",
+			containerName: "nginx",
+			client: func(t *testing.T) ECSClient {
+				return ECSClientMock{
+					DescribeTaskDefinitionMock: func(ctx context.Context, input *ecs.DescribeTaskDefinitionInput, optFns ...func(*ecs.Options)) (*ecs.DescribeTaskDefinitionOutput, error) {
+						port := int32(8080)
+						return &ecs.DescribeTaskDefinitionOutput{
+							TaskDefinition: &ecsTypes.TaskDefinition{
+								ContainerDefinitions: []ecsTypes.ContainerDefinition{
+									{
+										Name: aws.String("nginx"),
+										PortMappings: []ecsTypes.PortMapping{
+											{
+												ContainerPort: &port,
+											},
+										},
+									},
+								},
+							},
+						}, nil
+					},
+				}
+			},
+			expected:    aws.Int32(8080),
+			expectedErr: false,
+		},
+		{
+			name:          "TestGetContainerPortWithMultipleContainers",
+			taskDefArn:    "arn:aws:ecs:eu-west-1:111111111111:task-definition/my-task:1",
+			containerName: "redis",
+			client: func(t *testing.T) ECSClient {
+				return ECSClientMock{
+					DescribeTaskDefinitionMock: func(ctx context.Context, input *ecs.DescribeTaskDefinitionInput, optFns ...func(*ecs.Options)) (*ecs.DescribeTaskDefinitionOutput, error) {
+						nginxPort := int32(8080)
+						redisPort := int32(6379)
+						return &ecs.DescribeTaskDefinitionOutput{
+							TaskDefinition: &ecsTypes.TaskDefinition{
+								ContainerDefinitions: []ecsTypes.ContainerDefinition{
+									{
+										Name: aws.String("nginx"),
+										PortMappings: []ecsTypes.PortMapping{
+											{
+												ContainerPort: &nginxPort,
+											},
+										},
+									},
+									{
+										Name: aws.String("redis"),
+										PortMappings: []ecsTypes.PortMapping{
+											{
+												ContainerPort: &redisPort,
+											},
+										},
+									},
+								},
+							},
+						}, nil
+					},
+				}
+			},
+			expected:    aws.Int32(6379),
+			expectedErr: false,
+		},
+		{
+			name:          "TestGetContainerPortAPIError",
+			taskDefArn:    "arn:aws:ecs:eu-west-1:111111111111:task-definition/my-task:1",
+			containerName: "nginx",
+			client: func(t *testing.T) ECSClient {
+				return ECSClientMock{
+					DescribeTaskDefinitionMock: func(ctx context.Context, input *ecs.DescribeTaskDefinitionInput, optFns ...func(*ecs.Options)) (*ecs.DescribeTaskDefinitionOutput, error) {
+						return nil, fmt.Errorf("API error: task definition not found")
+					},
+				}
+			},
+			expected:    nil,
+			expectedErr: true,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			client := c.client(t)
+			res, err := getContainerPort(client, c.taskDefArn, c.containerName)
+			if c.expectedErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, c.expected, res)
+			}
+		})
+	}
+}
